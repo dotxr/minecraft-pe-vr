@@ -49,7 +49,7 @@ add_executable(vr_game ${GAME_SOURCES} ${CMAKE_CURRENT_SOURCE_DIR}/host_main.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/host_platform.cpp)
 target_include_directories(vr_game PRIVATE ${HANDHELD}/src ${HANDHELD}/src/raknet
     ${TESTS_STUBS} ${CMAKE_CURRENT_SOURCE_DIR})
-target_compile_definitions(vr_game PRIVATE OPENGL_ES MCPE_VR=1 XR_HOST_TEST
+target_compile_definitions(vr_game PRIVATE OPENGL_ES POSIX MCPE_VR=1 XR_HOST_TEST
     MCPE_ASSETS_DIR="${HANDHELD}/project/android/assets" MCPE_DATA_DIR="/tmp/vr-game-data")
 target_compile_options(vr_game PRIVATE -w -fpermissive)
 set_target_properties(vr_game PROPERTIES CXX_STANDARD 98 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS ON)
