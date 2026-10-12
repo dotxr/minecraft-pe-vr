@@ -43,6 +43,12 @@ bool aimWorldDirection(Vec3* out);
 // Returns false if it misses.
 bool aimAtPanel(float* guiX, float* guiY);
 
+// The GUI panel either follows the head (the HUD, in game) or stays put in the room
+// (menus). anchorPanelToView() pins it where the player is facing; headLockPanel()
+// lets it follow the head again.
+void anchorPanelToView();
+void headLockPanel();
+
 }  // namespace vr
 
 #endif /*PLATFORM_VR_VR_RENDER_H__*/

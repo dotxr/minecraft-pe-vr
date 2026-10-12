@@ -174,6 +174,9 @@ bool gMouseDownSent = false;
 // Right stick click state, so a click toggles the keyboard once.
 bool gStickClickWasDown = false;
 
+// The screen the panel was last set up for, so the panel is anchored once per screen.
+const void* gPanelScreen = NULL;
+
 // Y button state, so a press opens the inventory once.
 bool gYWasDown = false;
 
@@ -189,6 +192,14 @@ void updateInput(NinecraftApp* app, Minecraft* mc) {
 
     // Controller ray on the GUI panel becomes mouse input while a screen is open.
     // In game the trigger breaks blocks through the build input instead.
+    // Menus stay put in the room, where the player was facing when they opened; the
+    // in-game HUD follows the head.
+    if (mc->screen != gPanelScreen) {
+        gPanelScreen = mc->screen;
+        if (mc->screen) anchorPanelToView();
+        else headLockPanel();
+    }
+
     float guiX = 0, guiY = 0;
     bool hit = aimAtPanel(&guiX, &guiY);
     bool trigger = st.hands[kRight].trigger > kTriggerPressed;

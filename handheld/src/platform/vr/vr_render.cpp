@@ -76,13 +76,55 @@ GLuint framebufferFor(int eye, GLuint texture) {
     return fbo;
 }
 
-// Tip of the aim ray in the head's space, for the laser.
-void aimRayInHeadSpace(Vec3* origin, Vec3* dir) {
-    State& st = state();
-    Quat inv = conjugate(st.headOrientation);
-    const Hand& hand = st.hands[kRight];
-    *origin = rotate(inv, sub(hand.aimPosition, st.headPosition));
-    *dir = rotate(inv, forward(hand.aimOrientation));
+// The panel's frame in room (LOCAL) space: centre, right and up axes. Head-locked, the
+// frame follows the head every frame. Anchored, it stays where the player was looking
+// when the screen opened, so the menu holds still while they turn.
+struct PanelFrame {
+    Vec3 centre;
+    Vec3 right;
+    Vec3 up;
+};
+bool gPanelAnchored = false;
+PanelFrame gAnchoredFrame;
+
+Vec3 cross(const Vec3& a, const Vec3& b) {
+    return makeVec(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x);
+}
+
+PanelFrame currentPanelFrame() {
+    if (gPanelAnchored) return gAnchoredFrame;
+    const State& st = state();
+    PanelFrame f;
+    f.centre = add(st.headPosition, rotate(st.headOrientation, makeVec(0, kPanelCenterY, -kPanelDistance)));
+    f.right = rotate(st.headOrientation, makeVec(1, 0, 0));
+    f.up = rotate(st.headOrientation, makeVec(0, 1, 0));
+    return f;
+}
+
+// Room-space point to head space, which is where the panel and laser are drawn.
+Vec3 toHeadSpace(const Vec3& p) {
+    const State& st = state();
+    return rotate(conjugate(st.headOrientation), sub(p, st.headPosition));
+}
+
+// Intersects a room-space ray with the panel. On a hit, fills the hit point and its
+// position on the panel, in metres from the centre along right and up.
+bool hitPanel(const PanelFrame& f, const Vec3& o, const Vec3& d, Vec3* point, float* x, float* y) {
+    const Vec3 n = cross(f.right, f.up);   // faces the viewer
+    const float denom = dot(d, n);
+    if (denom >= -1e-4f) return false;
+    const float t = dot(sub(f.centre, o), n) / denom;
+    if (t < 0.0f) return false;
+
+    const Vec3 p = add(o, scale(d, t));
+    const Vec3 rel = sub(p, f.centre);
+    *x = dot(rel, f.right);
+    *y = dot(rel, f.up);
+    const float halfW = kPanelWidth * 0.5f;
+    const float halfH = halfW * (float)gGuiHeight / (float)gGuiWidth;
+    if (std::fabs(*x) > halfW || std::fabs(*y) > halfH) return false;
+    *point = p;
+    return true;
 }
 
 }  // namespace
@@ -196,26 +238,20 @@ Vec3 aimWorldOrigin() {
 }
 
 bool aimAtPanel(float* guiX, float* guiY) {
-    State& st = state();
+    const State& st = state();
     const Hand& hand = st.hands[kRight];
     if (!hand.aimValid) return false;
 
-    Vec3 origin, dir;
-    aimRayInHeadSpace(&origin, &dir);
-    if (dir.z >= -1e-4f) return false;
+    Vec3 point;
+    float x = 0, y = 0;
+    if (!hitPanel(currentPanelFrame(), hand.aimPosition, forward(hand.aimOrientation), &point, &x, &y))
+        return false;
 
-    float t = (-kPanelDistance - origin.z) / dir.z;
-    if (t < 0.0f) return false;
-
-    Vec3 hit = add(origin, scale(dir, t));
-    float halfW = kPanelWidth * 0.5f;
-    float halfH = halfW * (float)gGuiHeight / (float)gGuiWidth;
-    if (std::fabs(hit.x) > halfW || std::fabs(hit.y - kPanelCenterY) > halfH) return false;
-
-    float u = (hit.x + halfW) / (2.0f * halfW);
-    float v = (kPanelCenterY + halfH - hit.y) / (2.0f * halfH);
-    *guiX = u * (float)gGuiWidth;
-    *guiY = v * (float)gGuiHeight;
+    const float halfW = kPanelWidth * 0.5f;
+    const float halfH = halfW * (float)gGuiHeight / (float)gGuiWidth;
+    // The GUI is drawn top-down, so the top edge is row 0.
+    *guiX = (x + halfW) / (2.0f * halfW) * (float)gGuiWidth;
+    *guiY = (halfH - y) / (2.0f * halfH) * (float)gGuiHeight;
     return true;
 }
 
@@ -235,20 +271,24 @@ void drawPanel(int eye) {
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-    // Panel quad. The GUI is drawn top-down, so the quad's top edge samples the
-    // top row of the canvas.
+    // Panel quad, in room space and then head space. The GUI is drawn top-down, so the
+    // quad's top edge samples the top row of the canvas.
+    const PanelFrame f = currentPanelFrame();
     const float halfW = kPanelWidth * 0.5f;
     const float halfH = halfW * (float)gGuiHeight / (float)gGuiWidth;
-    const float top = kPanelCenterY + halfH;
-    const float bottom = kPanelCenterY - halfH;
-    const float z = -kPanelDistance;
-
-    const float verts[4 * 3] = {
-        -halfW, top, z,
-        -halfW, bottom, z,
-         halfW, bottom, z,
-         halfW, top, z,
+    const Vec3 corners[4] = {
+        add(f.centre, add(scale(f.right, -halfW), scale(f.up, halfH))),
+        add(f.centre, add(scale(f.right, -halfW), scale(f.up, -halfH))),
+        add(f.centre, add(scale(f.right, halfW), scale(f.up, -halfH))),
+        add(f.centre, add(scale(f.right, halfW), scale(f.up, halfH))),
     };
+    float verts[4 * 3];
+    for (int i = 0; i < 4; ++i) {
+        const Vec3 h = toHeadSpace(corners[i]);
+        verts[i * 3 + 0] = h.x;
+        verts[i * 3 + 1] = h.y;
+        verts[i * 3 + 2] = h.z;
+    }
     const float uvs[4 * 2] = {
         0, 1,
         0, 0,
@@ -268,22 +308,20 @@ void drawPanel(int eye) {
     glDisableClientState(GL_TEXTURE_COORD_ARRAY);
     glDisable(GL_TEXTURE_2D);
 
-    // Laser from the right controller, drawn in head space.
+    // Laser from the right controller, in room space and drawn in head space.
     if (st.hands[kRight].aimValid) {
-        Vec3 origin, dir;
-        aimRayInHeadSpace(&origin, &dir);
-        Vec3 end = add(origin, scale(dir, kLaserLength));
-        if (dir.z < -1e-4f) {
-            float t = (-kPanelDistance - origin.z) / dir.z;
-            if (t > 0.0f) {
-                Vec3 hit = add(origin, scale(dir, t));
-                if (std::fabs(hit.x) <= halfW && std::fabs(hit.y - kPanelCenterY) <= halfH) end = hit;
-            }
-        }
+        const Hand& hand = st.hands[kRight];
+        const Vec3 dir = forward(hand.aimOrientation);
+        Vec3 end = add(hand.aimPosition, scale(dir, kLaserLength));
+        Vec3 point;
+        float x = 0, y = 0;
+        if (hitPanel(f, hand.aimPosition, dir, &point, &x, &y)) end = point;
 
+        const Vec3 a = toHeadSpace(hand.aimPosition);
+        const Vec3 b = toHeadSpace(end);
         const float line[2 * 3] = {
-            origin.x, origin.y, origin.z,
-            end.x, end.y, end.z,
+            a.x, a.y, a.z,
+            b.x, b.y, b.z,
         };
         glColor4f(0.45f, 0.85f, 1.0f, 0.9f);
         glVertexPointer(3, GL_FLOAT, 0, line);
@@ -296,6 +334,27 @@ void drawPanel(int eye) {
     glDisable(GL_BLEND);
     glEnable(GL_CULL_FACE);
     glEnable(GL_ALPHA_TEST);
+}
+
+// Anchors the panel where the player is facing, with its top kept level: the heading
+// is taken from the head's yaw, so looking up or down doesn't tilt or move the menu.
+void anchorPanelToView() {
+    const State& st = state();
+    Vec3 fwd = forward(st.headOrientation);
+    fwd = makeVec(fwd.x, 0, fwd.z);
+    const float len = std::sqrt(fwd.x * fwd.x + fwd.z * fwd.z);
+    fwd = len < 1e-4f ? makeVec(0, 0, -1) : scale(fwd, 1.0f / len);
+
+    PanelFrame f;
+    f.up = makeVec(0, 1, 0);
+    f.right = cross(fwd, f.up);
+    f.centre = add(st.headPosition, add(scale(fwd, kPanelDistance), makeVec(0, kPanelCenterY, 0)));
+    gAnchoredFrame = f;
+    gPanelAnchored = true;
+}
+
+void headLockPanel() {
+    gPanelAnchored = false;
 }
 
 }  // namespace vr
