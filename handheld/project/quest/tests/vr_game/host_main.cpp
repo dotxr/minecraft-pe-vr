@@ -27,6 +27,8 @@ namespace {
 
 const int kGuiW = 1280, kGuiH = 720;
 const int kPlayFrames = 600;
+// Level generation runs on a thread and is slow on a software GL host; allow a long wait.
+const int kMaxFrames = 30000;
 
 // A scripted player: walk forward, turn slowly, and alternate breaking and placing.
 void scriptControllers(int frame) {
@@ -73,10 +75,15 @@ int main() {
 
     int framesRun = 0, framesPlayed = 0;
     bool levelReady = false;
-    for (int frame = 0; frame < 4000 && framesPlayed < kPlayFrames && !xr::shouldQuit(); ++frame) {
+    for (int frame = 0; frame < kMaxFrames && framesPlayed < kPlayFrames && !xr::shouldQuit(); ++frame) {
         xr::pollEvents();
         xr::beginFrame();
         ++framesRun;
+        if (framesRun % 500 == 0) {
+            printf("progress frame=%d generating=%d status=%s\n", framesRun,
+                   app->isLevelGenerated() ? 0 : 1, app->getProgressMessage());
+            fflush(stdout);
+        }
 
         if (vr::isActive() && xr::shouldRender() && vr::state().poseValid) {
             if (app->isLevelGenerated() && app->player) {
