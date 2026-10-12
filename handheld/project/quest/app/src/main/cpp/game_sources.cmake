@@ -4,6 +4,7 @@ set(GAME_SOURCES
     ${HANDHELD}/src/main_quest.cpp
     ${HANDHELD}/src/platform/gles1_shim.cpp
     ${HANDHELD}/src/platform/vr/vr_input.cpp
+    ${HANDHELD}/src/platform/vr/vr_text.cpp
     ${HANDHELD}/src/platform/audio/SoundSystemSL.cpp
     ${HANDHELD}/src/platform/input/Controller.cpp
     ${HANDHELD}/src/platform/input/Keyboard.cpp

@@ -5,6 +5,9 @@
 #include <string>
 #include <cstring>
 #include "client/renderer/TextureData.h"
+#ifdef MCPE_VR
+#include "platform/vr/vr_text.h"
+#endif
 
 typedef std::vector<std::string> StringVector;
 
@@ -87,11 +90,21 @@ public:
 
 	void createUserInput(int dialogId)
 	{
+#ifdef MCPE_VR
+		// No Android dialog in the headset: the on-screen keyboard asks instead.
+		vr::text::begin(dialogId);
+#else
 		showDialog(dialogId);
 		createUserInput();
+#endif
 	}
+#ifdef MCPE_VR
+	virtual int getUserInputStatus() { return vr::text::status(); }
+	virtual StringVector getUserInput() { return vr::text::result(); }
+#else
 	virtual int getUserInputStatus() { return 0; }
 	virtual StringVector getUserInput() { return StringVector(); }
+#endif
 
 	virtual std::string getDateString(int s) { return ""; }
 	//virtual void createUserInputScreen(const char* types) {}

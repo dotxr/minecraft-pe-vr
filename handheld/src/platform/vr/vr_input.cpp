@@ -11,6 +11,7 @@
 #include "../../client/Minecraft.h"
 #include "../../client/renderer/GameRenderer.h"
 #include "../../client/gui/VrKeyboard.h"
+#include "vr_text.h"
 #include "../../client/player/LocalPlayer.h"
 #include "../../client/player/input/IBuildInput.h"
 #include "../../client/player/input/IInputHolder.h"
@@ -184,8 +185,9 @@ void updateInput(NinecraftApp* app, Minecraft* mc) {
 
     // Presses on the on-screen keyboard type into it; the screen never sees them.
     if (pressEdge) {
-        gPressOnKeyboard = hit && mc->platform()->isKeyboardVisible() &&
-            mc->gameRenderer->keyboard().pointerPressed(mc, (int)guiX, (int)guiY);
+        VrKeyboard& keyboard = mc->gameRenderer->keyboard();
+        gPressOnKeyboard = hit && keyboard.visible(mc) &&
+            keyboard.pointerPressed(mc, (int)guiX, (int)guiY);
     }
     if (mc->screen && hit) {
         Mouse::feed(MouseAction::ACTION_MOVE, 0, (short)guiX, (short)guiY);
@@ -200,7 +202,7 @@ void updateInput(NinecraftApp* app, Minecraft* mc) {
 
     // Right stick click shows or hides the on-screen keyboard while a screen is open.
     bool stickClick = st.hands[kRight].stickClick;
-    if (stickClick && !gStickClickWasDown && mc->screen) {
+    if (stickClick && !gStickClickWasDown && mc->screen && !vr::text::open()) {
         if (mc->platform()->isKeyboardVisible()) mc->platform()->hideKeyboard();
         else mc->platform()->showKeyboard();
     }

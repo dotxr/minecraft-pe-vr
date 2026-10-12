@@ -7,6 +7,7 @@
 #include "../Minecraft.h"
 #include "../../AppPlatform.h"
 #include "../../platform/input/Keyboard.h"
+#include "../../platform/vr/vr_text.h"
 
 // Layout is in GUI units, the same space the screens draw in (the canvas divided
 // by Gui::GuiScale), so the keyboard scales with the rest of the interface.
@@ -15,12 +16,8 @@ namespace {
 const int kPad = 4;
 const int kGap = 2;
 const int kKeyH = 20;
-
-// Special actions, kept out of the character range.
-const int kActionShift = -1;
-const int kActionBackspace = -2;
-const int kActionEnter = -3;
-const int kActionHide = -4;
+// Room above the keys for the prompt and the text being typed into a request.
+const int kTextRow = 14;
 
 const int kColourBackground = 0xE0101010;
 const int kColourKey = 0xFF505050;
@@ -48,7 +45,7 @@ void VrKeyboard::layout(Minecraft* mc) {
 	const int keyW = (sw - 2 * kPad - 9 * kGap) / 10;
 
 	_keyCount = 0;
-	const int rowsTop = sh - (kRowCount + 1) * (kKeyH + kGap) - kPad;
+	const int rowsTop = sh - (kRowCount + 1) * (kKeyH + kGap) - kPad - kTextRow;
 
 	for (int r = 0; r < kRowCount; ++r) {
 		const int n = (int)strlen(kRows[r]);
@@ -82,10 +79,32 @@ void VrKeyboard::layout(Minecraft* mc) {
 	_bounds[3] = bottomY + kKeyH + kPad;
 }
 
+bool VrKeyboard::centreOf(Minecraft* mc, int action, int* canvasX, int* canvasY) {
+	layout(mc);
+	for (int i = 0; i < _keyCount; ++i) {
+		const Key& k = _keys[i];
+		if (k.action != action) continue;
+		// One canvas pixel past the centre, so rounding can't land on the edge below.
+		*canvasX = (int)((k.x + k.w / 2) * Gui::GuiScale) + 1;
+		*canvasY = (int)((k.y + k.h / 2) * Gui::GuiScale) + 1;
+		return true;
+	}
+	return false;
+}
+
+bool VrKeyboard::visible(Minecraft* mc) const {
+	return mc->platform()->isKeyboardVisible() || vr::text::open();
+}
+
 void VrKeyboard::render(Minecraft* mc) {
 	layout(mc);
 
 	fill(_bounds[0], _bounds[1], _bounds[2], _bounds[3], kColourBackground);
+	if (vr::text::open()) {
+		// The request's prompt and the text typed so far, with a cursor.
+		std::string line = std::string(vr::text::currentPrompt()) + ": " + vr::text::currentValue() + "_";
+		mc->font->draw(line, (float)(_bounds[0] + kPad), (float)(_bounds[1] + 3), kColourText);
+	}
 	for (int i = 0; i < _keyCount; ++i) {
 		const Key& k = _keys[i];
 		const bool on = k.action == kActionShift && _shift;
@@ -130,22 +149,41 @@ bool VrKeyboard::pointerPressed(Minecraft* mc, int x, int y) {
 }
 
 void VrKeyboard::press(Minecraft* mc, const Key& key) {
+	// While the game asks for text, keys fill that request. Otherwise they type into
+	// whatever screen is open, as a physical keyboard would.
+	const bool request = vr::text::open();
 	if (key.action > 0) {
 		typeCharacter((char)key.action);
 	} else if (key.action == kActionShift) {
 		_shift = !_shift;
-	} else if (key.action == kActionBackspace || key.action == kActionEnter) {
-		const unsigned char code = key.action == kActionBackspace ? Keyboard::KEY_BACKSPACE : Keyboard::KEY_RETURN;
-		Keyboard::feed(code, KeyboardAction::KEYDOWN);
-		Keyboard::feed(code, KeyboardAction::KEYUP);
+	} else if (key.action == kActionBackspace) {
+		if (request) {
+			std::string& value = vr::text::currentValue();
+			if (!value.empty()) value.erase(value.size() - 1);
+		} else {
+			sendKey(Keyboard::KEY_BACKSPACE);
+		}
+	} else if (key.action == kActionEnter) {
+		if (request) vr::text::advance();
+		else sendKey(Keyboard::KEY_RETURN);
 	} else if (key.action == kActionHide) {
-		mc->platform()->hideKeyboard();
+		if (request) vr::text::cancel();
+		else mc->platform()->hideKeyboard();
 	}
+}
+
+void VrKeyboard::sendKey(int keyCode) {
+	Keyboard::feed((unsigned char)keyCode, KeyboardAction::KEYDOWN);
+	Keyboard::feed((unsigned char)keyCode, KeyboardAction::KEYUP);
 }
 
 void VrKeyboard::typeCharacter(char c) {
 	if (_shift && c >= 'a' && c <= 'z') c = (char)(c - 32);
-	Keyboard::feedText(c);
+	if (vr::text::open()) {
+		vr::text::currentValue() += c;
+	} else {
+		Keyboard::feedText(c);
+	}
 	// Shift applies to one character, as on a phone keyboard.
 	_shift = false;
 }

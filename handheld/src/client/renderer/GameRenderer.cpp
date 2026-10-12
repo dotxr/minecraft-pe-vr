@@ -108,6 +108,10 @@ void GameRenderer::setupCamera(float a, int eye) {
     if (mc->isPowerVR() && mc->options.viewDistance <= 2)
 		renderDistance *= 0.8f;
 #endif
+#ifdef MCPE_VR
+    // The headset draws the world five times farther than the phone builds did.
+    renderDistance *= 5.0f;
+#endif
 
 	glMatrixMode(GL_PROJECTION);
     glLoadIdentity2();
@@ -309,7 +313,7 @@ void GameRenderer::renderVr(float a) {
 		mc->screen->render(xMouse, yMouse, a);
 	}
 	// The headset has no soft keyboard, so text entry (signs) draws its own.
-	if (mc->platform()->isKeyboardVisible()) {
+	if (vrKeyboard.visible(mc)) {
 		vrKeyboard.render(mc);
 	}
 	vr::endGui();

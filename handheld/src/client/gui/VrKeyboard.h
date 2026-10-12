@@ -16,6 +16,20 @@ class VrKeyboard: public GuiComponent
 public:
 	VrKeyboard();
 
+	// Action ids for keys that aren't a character.
+	static const int kActionShift = -1;
+	static const int kActionBackspace = -2;
+	static const int kActionEnter = -3;
+	static const int kActionHide = -4;
+
+	// Canvas pixel at the centre of the key for an action (a character, or one of the
+	// kAction ids). False if there's no such key on the keyboard.
+	bool centreOf(Minecraft* mc, int action, int* canvasX, int* canvasY);
+
+	// True while the keyboard should be on screen: a screen asked for it, or the game
+	// is asking for text (world name, seed).
+	bool visible(Minecraft* mc) const;
+
 	// Draws the keyboard into the GUI canvas, at the bottom of the screen.
 	void render(Minecraft* mc);
 
@@ -31,6 +45,7 @@ private:
 	void layout(Minecraft* mc);
 	void press(Minecraft* mc, const Key& key);
 	void typeCharacter(char c);
+	void sendKey(int keyCode);
 
 	bool _shift;
 	Key _keys[64];

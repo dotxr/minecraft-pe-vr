@@ -5,6 +5,9 @@
 #include "AppPlatform.h"
 #include "NinecraftApp.h"
 #include "client/renderer/GameRenderer.h"
+#include "client/gui/VrKeyboard.h"
+#include "client/gui/screens/DialogDefinitions.h"
+#include "platform/vr/vr_text.h"
 #include "platform/input/Keyboard.h"
 #include "host_platform.h"
 #include "platform/gles1_shim.h"
@@ -53,13 +56,35 @@ void scriptControllers(int frame) {
 // Presses the space bar on the VR keyboard and checks that a space reaches the text
 // queue, which is where sign editing reads its characters. The coordinates are GUI
 // canvas pixels: the bottom row's centre key, on a 1280x720 canvas.
+bool pressKey(Minecraft* mc, int action) {
+    int x = 0, y = 0;
+    if (!mc->gameRenderer->keyboard().centreOf(mc, action, &x, &y)) return false;
+    return mc->gameRenderer->keyboard().pointerPressed(mc, x, y);
+}
+
 bool exerciseKeyboard(Minecraft* mc, AppPlatform& platform) {
     platform.showKeyboard();
-    const bool consumed = mc->gameRenderer->keyboard().pointerPressed(mc, 639, 672);
+    const bool consumed = pressKey(mc, ' ');
     const bool typed = Keyboard::nextTextChar() && Keyboard::getChar() == ' ';
     platform.hideKeyboard();
     printf("keyboard: space pressed=%d typed=%d\n", consumed, typed);
     return consumed && typed;
+}
+
+// Asks for a world name through the platform, types "q" on the headset keyboard,
+// then presses enter past the name and past the (empty) seed.
+bool exerciseTextRequest(Minecraft* mc, AppPlatform& platform) {
+    platform.createUserInput(DialogDefinitions::DIALOG_CREATE_NEW_WORLD);
+    const bool pending = platform.getUserInputStatus() == -1;
+    pressKey(mc, 'q');
+    pressKey(mc, VrKeyboard::kActionEnter);
+    pressKey(mc, VrKeyboard::kActionEnter);
+    const int status = platform.getUserInputStatus();
+    const StringVector v = platform.getUserInput();
+    const bool ok = pending && status == 1 && v.size() == 2 && v[0] == "q" && v[1].empty();
+    printf("text request: pending=%d status=%d name='%s' seed='%s' ok=%d\n", pending, status,
+           v.size() > 0 ? v[0].c_str() : "", v.size() > 1 ? v[1].c_str() : "", ok);
+    return ok;
 }
 
 }  // namespace
@@ -107,7 +132,7 @@ int main() {
                     levelReady = true;
                     printf("level ready after %d frames; player at %.1f %.1f %.1f\n", framesRun,
                            app->player->x, app->player->y, app->player->z);
-                    keyboardOk = exerciseKeyboard(app, platform);
+                    keyboardOk = exerciseKeyboard(app, platform) && exerciseTextRequest(app, platform);
                 }
                 scriptControllers(framesPlayed);
                 ++framesPlayed;

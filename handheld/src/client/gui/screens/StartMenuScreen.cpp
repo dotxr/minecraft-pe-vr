@@ -70,7 +70,10 @@ void StartMenuScreen::init()
 		version = versionString + " (Demo)";
 	#endif
 	#else
-		#ifdef RPI
+		#if defined(MCPE_VR)
+			// The headset build names the device it runs on.
+			version = "Meta Quest " + versionString;
+		#elif defined(RPI)
 			version = "v0.1.1 alpha";//(MCPE " + versionString + " compatible)";
 		#else
 			version = versionString;

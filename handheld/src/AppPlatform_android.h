@@ -234,6 +234,9 @@ public:
     }
 
     int getUserInputStatus() {
+#ifdef MCPE_VR
+        return vr::text::status();
+#endif
         if (!_isInited) return -2;
         if (!_methodUserInputStatus) return -2;
 
@@ -254,6 +257,9 @@ public:
     }
 
     StringVector getUserInput() {
+#ifdef MCPE_VR
+        return vr::text::result();
+#endif
         if (!_isInited) return std::vector<std::string>();
         if (!_methodUserInputString) return std::vector<std::string>();
 
