@@ -32,6 +32,12 @@ const float kTriggerPressed = 0.5f;
 const float kHotbarFlick = 0.7f;
 // Smooth turning speed on the right stick, degrees per second at full deflection.
 const float kTurnSpeed = 120.0f;
+// Snap turning, the default for comfort: each flick of the right stick turns the view
+// by a fixed angle. Set to false for smooth turning at kTurnSpeed.
+const bool kSnapTurn = true;
+const float kSnapDegrees = 30.0f;
+const float kSnapFlick = 0.7f;   // stick deflection that counts as a flick
+const float kSnapRearm = 0.3f;   // the stick must return below this before the next flick
 
 float deadZone(float v) {
     float a = v < 0 ? -v : v;
@@ -250,8 +256,22 @@ void syncPlayerToHead(LocalPlayer* player) {
         st.headCalibrated = true;
     }
 
-    float turn = deadZone(st.hands[kRight].stickX);
-    st.bodyYaw += turn * kTurnSpeed * dt;
+    const float stick = st.hands[kRight].stickX;
+    if (kSnapTurn) {
+        // One turn per flick: the stick has to come back to centre before the next.
+        static bool snapArmed = true;
+        if (snapArmed && stick > kSnapFlick) {
+            st.bodyYaw += kSnapDegrees;
+            snapArmed = false;
+        } else if (snapArmed && stick < -kSnapFlick) {
+            st.bodyYaw -= kSnapDegrees;
+            snapArmed = false;
+        } else if (stick < kSnapRearm && stick > -kSnapRearm) {
+            snapArmed = true;
+        }
+    } else {
+        st.bodyYaw += deadZone(stick) * kTurnSpeed * dt;
+    }
 
     Vec3 worldForward = rotateYaw(headForward, st.bodyYaw);
     player->yRot = yawOf(worldForward);
