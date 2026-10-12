@@ -103,12 +103,13 @@ void android_main(struct android_app* state)
     context.doRender = false;
     context.platform = &appPlatform;
 
-    App* app = new MAIN_CLASS();
-    setupExternalPath(env, (MAIN_CLASS*) app);
+    MAIN_CLASS* app = new MAIN_CLASS();
+    setupExternalPath(env, app);
 
-    app->init(context);
+    static_cast<App*>(app)->init(context);
     app->setSize(kGuiWidth, kGuiHeight);
 
+    bool wasActive = false;
     while (!xr::shouldQuit() && !state->destroyRequested) {
         // Android events (lifecycle, back key) are delivered through the looper.
         int ident;
@@ -122,7 +123,13 @@ void android_main(struct android_app* state)
         if (xr::shouldQuit()) break;
 
         xr::beginFrame();
-        if (vr::isActive() && xr::shouldRender() && vr::state().poseValid) {
+
+        // Headset taken off or focus lost while playing: open the pause menu.
+        bool active = vr::isActive();
+        if (wasActive && !active && app->level != NULL) app->pauseGame(true);
+        wasActive = active;
+
+        if (active && xr::shouldRender() && vr::state().poseValid) {
             app->update();
         } else {
             // Not focused, or the headset is showing a system overlay: nothing to draw.

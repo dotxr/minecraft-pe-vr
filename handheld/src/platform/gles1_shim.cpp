@@ -478,28 +478,74 @@ size_t typeSize(GLenum type) {
     }
 }
 
+// Last values sent to the shader, so unchanged uniforms are not re-uploaded. The
+// game issues thousands of draws per frame and most share the same state.
+struct UploadedState {
+    bool valid;
+    float modelView[16];
+    float projection[16];
+    float texture[16];
+    int texOn, alphaOn, alphaFunc, fogOn, fogMode;
+    float alphaRef, fogStart, fogEnd, fogDensity;
+    float fogColor[4];
+    float color[4];
+};
+UploadedState gUploaded;
+
+template <typename T>
+bool changed(T& last, const T& now) {
+    if (last == now) return false;
+    last = now;
+    return true;
+}
+
 // Uploads everything the shader needs for the next draw.
 void flushState() {
     ensureInitialised();
     gl3.UseProgram(gs.program);
 
-    gl3.UniformMatrix4fv(gs.locModelView, 1, GL_FALSE, gs.modelView[gs.modelViewDepth].m);
-    gl3.UniformMatrix4fv(gs.locProjection, 1, GL_FALSE, gs.projection[gs.projectionDepth].m);
-    gl3.UniformMatrix4fv(gs.locTexture, 1, GL_FALSE, gs.texture.m);
-    gl3.Uniform1i(gs.locSampler, 0);
-    gl3.Uniform1i(gs.locTexOn, gs.texture2D ? 1 : 0);
-    gl3.Uniform1i(gs.locAlphaOn, gs.alphaTest ? 1 : 0);
-    gl3.Uniform1i(gs.locAlphaFunc, (GLint)gs.alphaFunc);
-    gl3.Uniform1f(gs.locAlphaRef, gs.alphaRef);
-    gl3.Uniform1i(gs.locFogOn, gs.fog ? 1 : 0);
-    gl3.Uniform1i(gs.locFogMode, (GLint)gs.fogMode);
-    gl3.Uniform1f(gs.locFogStart, gs.fogStart);
-    gl3.Uniform1f(gs.locFogEnd, gs.fogEnd);
-    gl3.Uniform1f(gs.locFogDensity, gs.fogDensity);
-    gl3.Uniform4f(gs.locFogColor, gs.fogColor[0], gs.fogColor[1], gs.fogColor[2], gs.fogColor[3]);
+    UploadedState& u = gUploaded;
+    const float* mv = gs.modelView[gs.modelViewDepth].m;
+    const float* proj = gs.projection[gs.projectionDepth].m;
+    if (!u.valid || memcmp(u.modelView, mv, sizeof(u.modelView)) != 0) {
+        memcpy(u.modelView, mv, sizeof(u.modelView));
+        gl3.UniformMatrix4fv(gs.locModelView, 1, GL_FALSE, mv);
+    }
+    if (!u.valid || memcmp(u.projection, proj, sizeof(u.projection)) != 0) {
+        memcpy(u.projection, proj, sizeof(u.projection));
+        gl3.UniformMatrix4fv(gs.locProjection, 1, GL_FALSE, proj);
+    }
+    if (!u.valid || memcmp(u.texture, gs.texture.m, sizeof(u.texture)) != 0) {
+        memcpy(u.texture, gs.texture.m, sizeof(u.texture));
+        gl3.UniformMatrix4fv(gs.locTexture, 1, GL_FALSE, gs.texture.m);
+    }
+
+    int texOn = gs.texture2D ? 1 : 0;
+    int alphaOn = gs.alphaTest ? 1 : 0;
+    int alphaFunc = (int)gs.alphaFunc;
+    int fogOn = gs.fog ? 1 : 0;
+    int fogMode = (int)gs.fogMode;
+    if (!u.valid || changed(u.texOn, texOn)) gl3.Uniform1i(gs.locTexOn, texOn);
+    if (!u.valid || changed(u.alphaOn, alphaOn)) gl3.Uniform1i(gs.locAlphaOn, alphaOn);
+    if (!u.valid || changed(u.alphaFunc, alphaFunc)) gl3.Uniform1i(gs.locAlphaFunc, alphaFunc);
+    if (!u.valid || changed(u.alphaRef, gs.alphaRef)) gl3.Uniform1f(gs.locAlphaRef, gs.alphaRef);
+    if (!u.valid || changed(u.fogOn, fogOn)) gl3.Uniform1i(gs.locFogOn, fogOn);
+    if (!u.valid || changed(u.fogMode, fogMode)) gl3.Uniform1i(gs.locFogMode, fogMode);
+    if (!u.valid || changed(u.fogStart, gs.fogStart)) gl3.Uniform1f(gs.locFogStart, gs.fogStart);
+    if (!u.valid || changed(u.fogEnd, gs.fogEnd)) gl3.Uniform1f(gs.locFogEnd, gs.fogEnd);
+    if (!u.valid || changed(u.fogDensity, gs.fogDensity)) gl3.Uniform1f(gs.locFogDensity, gs.fogDensity);
+    if (!u.valid || memcmp(u.fogColor, gs.fogColor, sizeof(u.fogColor)) != 0) {
+        memcpy(u.fogColor, gs.fogColor, sizeof(u.fogColor));
+        gl3.Uniform4f(gs.locFogColor, gs.fogColor[0], gs.fogColor[1], gs.fogColor[2], gs.fogColor[3]);
+    }
+    if (!u.valid) gl3.Uniform1i(gs.locSampler, 0);
 
     // Used when the colour array is disabled.
-    gl3.VertexAttrib4f(kAttribColor, gs.color[0], gs.color[1], gs.color[2], gs.color[3]);
+    if (!u.valid || memcmp(u.color, gs.color, sizeof(u.color)) != 0) {
+        memcpy(u.color, gs.color, sizeof(u.color));
+        gl3.VertexAttrib4f(kAttribColor, gs.color[0], gs.color[1], gs.color[2], gs.color[3]);
+    }
+    u.valid = true;
 }
 
 // Points the three shader attributes at either the game's buffers or freshly
