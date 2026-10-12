@@ -336,14 +336,6 @@ void GameRenderer::renderVr(float a) {
 		zOff = cameraEntity->zOld + (cameraEntity->z - cameraEntity->zOld) * a;
 	}
 
-	if (drawWorld) {
-		// Rebuilding chunk geometry is the costly part of a world pass; doing it once per
-		// frame instead of once per eye halves that work.
-		TIMER_PUSH("dirty");
-		mc->levelRenderer->updateDirtyChunks(cameraEntity, false);
-		TIMER_POP();
-	}
-
 	for (int eye = 0; eye < 2; ++eye) {
 		vr::beginEye(eye, 0, 0, 0);
 		if (vr::state().currentEye < 0) continue;
@@ -417,7 +409,11 @@ void GameRenderer::renderLevelPass(float a, int i, Mob* cameraEntity, float xOff
 
 		TIMER_POP_PUSH("culling");
         mc->levelRenderer->cull(&frustum, a);
-#ifndef MCPE_VR
+#ifdef MCPE_VR
+        // Chunk geometry is rebuilt on the first eye only: once per frame, in the same GL
+        // state the level has always been built in.
+        if (i == 0) mc->levelRenderer->updateDirtyChunks(cameraEntity, false);
+#else
         mc->levelRenderer->updateDirtyChunks(cameraEntity, false);
 #endif
 

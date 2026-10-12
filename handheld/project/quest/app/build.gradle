@@ -14,7 +14,7 @@ android {
         applicationId 'com.mojang.minecraftpe'
         minSdk 29
         targetSdk 32
-        versionCode 6100
+        versionCode 6101
         versionName '0.6.1-quest'
 
         ndk {

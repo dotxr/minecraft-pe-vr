@@ -16,7 +16,14 @@
 
 #include <android/native_activity.h>
 #include <android_native_app_glue.h>
+#include <dlfcn.h>
+#include <fcntl.h>
+#include <signal.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <string.h>
 #include <unistd.h>
+#include <unwind.h>
 
 #define MAIN_CLASS NinecraftApp
 
@@ -48,6 +55,86 @@ static void setupExternalPath(JNIEnv* env, jobject activity, MAIN_CLASS* app)
     app->externalCacheStoragePath = str;
     LOGI("external storage: %s", str);
     env->ReleaseStringUTFChars((jstring) pathString, str);
+}
+
+// Crash reports go to crash.txt in the app's external files folder. A crash on the
+// headset leaves nothing else readable without a debugger, so the handler writes the
+// signal, the fault address and a backtrace there, then lets the system handle the crash.
+static char gCrashPath[512] = "";
+
+struct BacktraceState {
+    int count;
+    void** frames;
+    int max;
+};
+
+static _Unwind_Reason_Code captureFrame(struct _Unwind_Context* ctx, void* arg) {
+    BacktraceState* st = (BacktraceState*) arg;
+    if (st->count >= st->max) return _URC_END_OF_STACK;
+    const uintptr_t ip = _Unwind_GetIP(ctx);
+    if (ip) st->frames[st->count++] = (void*) ip;
+    return _URC_NO_REASON;
+}
+
+static void writeText(int fd, const char* text) {
+    write(fd, text, strlen(text));
+}
+
+static void writeHex(int fd, uintptr_t value) {
+    char buf[24];
+    char* p = buf + sizeof(buf);
+    *--p = '\0';
+    do {
+        *--p = "0123456789abcdef"[value & 15];
+        value >>= 4;
+    } while (value);
+    writeText(fd, "0x");
+    writeText(fd, p);
+}
+
+static void crashHandler(int sig, siginfo_t* info, void* context) {
+    const int fd = open(gCrashPath, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    writeText(fd, "fatal signal ");
+    writeHex(fd, (uintptr_t) sig);
+    writeText(fd, " at fault address ");
+    writeHex(fd, (uintptr_t) info->si_addr);
+    writeText(fd, "\n");
+
+    void* frames[64];
+    BacktraceState st = {0, frames, 64};
+    _Unwind_Backtrace(captureFrame, &st);
+    for (int i = 0; i < st.count; ++i) {
+        Dl_info dl;
+        writeHex(fd, (uintptr_t) st.frames[i]);
+        if (dladdr(st.frames[i], &dl) && dl.dli_fname) {
+            writeText(fd, " ");
+            writeText(fd, dl.dli_fname);
+            if (dl.dli_sname) {
+                writeText(fd, " ");
+                writeText(fd, dl.dli_sname);
+            }
+        }
+        writeText(fd, "\n");
+    }
+    close(fd);
+
+    LOGE("fatal signal %d; crash report written to %s", sig, gCrashPath);
+    signal(sig, SIG_DFL);
+    raise(sig);
+}
+
+static void installCrashHandler(const std::string& externalPath) {
+    snprintf(gCrashPath, sizeof(gCrashPath), "%s/crash.txt", externalPath.c_str());
+
+    struct sigaction sa;
+    memset(&sa, 0, sizeof(sa));
+    sa.sa_sigaction = crashHandler;
+    sa.sa_flags = SA_SIGINFO;
+    sigaction(SIGSEGV, &sa, NULL);
+    sigaction(SIGABRT, &sa, NULL);
+    sigaction(SIGBUS, &sa, NULL);
+    sigaction(SIGFPE, &sa, NULL);
+    sigaction(SIGILL, &sa, NULL);
 }
 
 static void handleAppCommand(struct android_app* state, int32_t cmd) {
@@ -113,6 +200,7 @@ void android_main(struct android_app* state)
 
     MAIN_CLASS* app = new MAIN_CLASS();
     setupExternalPath(env, activity, app);
+    installCrashHandler(app->externalStoragePath);
 
     static_cast<App*>(app)->init(context);
     app->setSize(kGuiWidth, kGuiHeight);
