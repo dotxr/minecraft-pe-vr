@@ -56,7 +56,8 @@ The HUD and every menu are drawn onto a head-locked panel. Use the right control
 
 ### Status and limitations
 
-- The port builds for arm64 and the native library links against OpenXR and GLES 3. The shim matches a reference renderer on a test scene.
+- The port builds for arm64 and the native library links against OpenXR and GLES 3. The shim matches a reference renderer on a test scene (`tests/gles1_shim`).
+- The VR layer (session, controller actions, swapchains, eye and GUI render targets) runs against the Monado OpenXR runtime in headless mode (`tests/vr_session`). That covers everything except the Android loader and the real headset.
 - It has **not** been run on a headset in this repository's development environment. Rendering speed, comfort and input feel need to be checked on hardware.
 - Block targeting follows the right controller, with the origin at the eye, so the laser and the targeted block can differ slightly from a hand-to-eye alignment.
 - Touch-only controls (the on-screen joystick and buttons) are replaced by the controllers.

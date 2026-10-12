@@ -91,6 +91,11 @@ public:
 
 		_states[keyCode] = state;
 	}
+	// Sets the held state without queueing an event, for input that is polled every
+	// frame (such as a controller button) and must not also trigger the key's action.
+	static void setHeld(unsigned char keyCode, int state) {
+		_states[keyCode] = state;
+	}
 	static void feedText(char character) {
 		_inputText.push_back(character);
 	}

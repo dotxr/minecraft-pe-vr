@@ -3,6 +3,7 @@
 #include "vr_math.h"
 #include "vr_render.h"
 
+#include "../input/Keyboard.h"
 #include "../input/Mouse.h"
 #include "../time.h"
 
@@ -178,6 +179,11 @@ void updateInput(NinecraftApp* app, Minecraft* mc) {
         }
     }
     gGuiTriggerWasDown = trigger;
+
+    // Holding the grip keeps the use key held, so charged items (the bow, eating)
+    // release when the grip is let go.
+    Keyboard::setHeld(mc->options.keyUse.key,
+        st.hands[kRight].grip > kTriggerPressed ? KeyboardAction::KEYDOWN : KeyboardAction::KEYUP);
 
     // Y on the left controller opens block selection (the inventory), as the "More..."
     // slot in the hotbar does. Only from play, not over another screen.

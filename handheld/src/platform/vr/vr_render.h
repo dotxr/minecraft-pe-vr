@@ -25,6 +25,9 @@ void endGui();
 // of the current eye. Call inside beginEye/endEye, after the world.
 void drawPanel(int eye);
 
+// Framebuffer of the GUI canvas, for tests that read it back.
+unsigned int guiFramebufferForTest();
+
 // Projection for the eye being rendered (replaces gluPerspective in VR).
 void setEyeProjection(float zNear, float zFar);
 

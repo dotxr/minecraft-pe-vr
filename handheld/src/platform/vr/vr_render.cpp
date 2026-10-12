@@ -162,6 +162,8 @@ void endGui() {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
+unsigned int guiFramebufferForTest() { return gGuiFramebuffer; }
+
 void setEyeProjection(float zNear, float zFar) {
     const Fov& f = state().eyes[state().currentEye < 0 ? 0 : state().currentEye].fov;
     float l = zNear * std::tan(f.left);

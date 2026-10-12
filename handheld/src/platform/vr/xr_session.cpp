@@ -10,7 +10,13 @@
 #include <unistd.h>
 #include <vector>
 
+// XR_HOST_TEST builds this file for a desktop runtime (see tests/vr_session). The Quest
+// build leaves it undefined and uses the Android loader, instance and binding.
+#ifndef XR_HOST_TEST
 #define XR_USE_PLATFORM_ANDROID
+#else
+#define XR_USE_PLATFORM_EGL
+#endif
 #define XR_USE_GRAPHICS_API_OPENGL_ES
 #include <openxr/openxr.h>
 #include <openxr/openxr_platform.h>
@@ -179,7 +185,12 @@ bool createActions() {
 }
 
 bool createEgl() {
+#ifdef XR_HOST_TEST
+    // Headless: a surfaceless display, so no window system is needed.
+    xs.display = eglGetPlatformDisplay(0x31DD /* EGL_PLATFORM_SURFACELESS_MESA */, EGL_DEFAULT_DISPLAY, NULL);
+#else
     xs.display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
+#endif
     if (xs.display == EGL_NO_DISPLAY) {
         XR_LOGE("eglGetDisplay failed");
         return false;
@@ -383,6 +394,7 @@ bool init(JavaVM* vm, jobject activity) {
         xs.aimSpace[i] = XR_NULL_HANDLE;
     }
 
+#ifndef XR_HOST_TEST
     PFN_xrInitializeLoaderKHR initializeLoader = NULL;
     xrGetInstanceProcAddr(XR_NULL_HANDLE, "xrInitializeLoaderKHR", (PFN_xrVoidFunction*)&initializeLoader);
     if (!initializeLoader) {
@@ -399,14 +411,24 @@ bool init(JavaVM* vm, jobject activity) {
     androidInfo.applicationActivity = activity;
 
     const char* extensions[] = {"XR_KHR_opengl_es_enable", "XR_KHR_android_create_instance"};
+#else
+    // Desktop runtime: EGL binding (XR_MNDX_egl_enable) and a headless system.
+    const char* extensions[] = {"XR_KHR_opengl_es_enable", "XR_MNDX_egl_enable", "XR_MND_headless"};
+#endif
     XrInstanceCreateInfo createInfo = {XR_TYPE_INSTANCE_CREATE_INFO};
+#ifndef XR_HOST_TEST
     createInfo.next = &androidInfo;
+#endif
     strncpy(createInfo.applicationInfo.applicationName, kAppName, XR_MAX_APPLICATION_NAME_SIZE - 1);
     createInfo.applicationInfo.applicationVersion = 1;
     strncpy(createInfo.applicationInfo.engineName, "minecraftpe", XR_MAX_ENGINE_NAME_SIZE - 1);
     createInfo.applicationInfo.engineVersion = 1;
     createInfo.applicationInfo.apiVersion = XR_API_VERSION_1_0;
+#ifdef XR_HOST_TEST
+    createInfo.enabledExtensionCount = 3;
+#else
     createInfo.enabledExtensionCount = 2;
+#endif
     createInfo.enabledExtensionNames = extensions;
     XR_CHECK_LOG(xrCreateInstance(&createInfo, &xs.instance), "xrCreateInstance");
 
@@ -425,10 +447,18 @@ bool init(JavaVM* vm, jobject activity) {
                (int)XR_VERSION_MINOR(req.minApiVersionSupported));
     }
 
+#ifdef XR_HOST_TEST
+    XrGraphicsBindingEGLMNDX binding = {XR_TYPE_GRAPHICS_BINDING_EGL_MNDX};
+    binding.getProcAddress = eglGetProcAddress;
+    binding.display = xs.display;
+    binding.config = xs.config;
+    binding.context = xs.context;
+#else
     XrGraphicsBindingOpenGLESAndroidKHR binding = {XR_TYPE_GRAPHICS_BINDING_OPENGL_ES_ANDROID_KHR};
     binding.display = xs.display;
     binding.config = xs.config;
     binding.context = xs.context;
+#endif
 
     XrSessionCreateInfo sessionInfo = {XR_TYPE_SESSION_CREATE_INFO};
     sessionInfo.next = &binding;
