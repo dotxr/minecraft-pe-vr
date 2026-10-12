@@ -338,7 +338,7 @@ const char* kVertexShader =
 
 const char* kFragmentShader =
     "#version 300 es\n"
-    "precision mediump float;\n"
+    "precision highp float;\n"
     "in vec4 vColor;\n"
     "in vec2 vTexCoord;\n"
     "in float vFogDistance;\n"

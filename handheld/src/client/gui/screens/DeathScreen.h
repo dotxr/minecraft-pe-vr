@@ -19,6 +19,8 @@ public:
 	void render(int xm, int ym, float a);
 
 	void buttonClicked(Button* button);
+	// Back does nothing here: the player leaves through the buttons, not the menu key.
+	bool handleBackEvent(bool isDown) { return true; }
 
 private:
 	Button* bRespawn;

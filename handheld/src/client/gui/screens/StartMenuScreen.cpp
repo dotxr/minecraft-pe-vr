@@ -21,6 +21,16 @@
 #include "SimpleChooseLevelScreen.h"
 #include "../../renderer/Textures.h"
 #include "../../../SharedConstants.h"
+#include "../../../platform/time.h"
+
+#ifdef MCPE_VR
+// Time of the first menu press of a quit request, in seconds; a second press within
+// the window quits. On the headset the menu button is also back, so a stray press
+// must not close the game.
+static float gQuitAskedAt = -1000.0f;
+static const float kQuitWindow = 3.0f;
+#endif
+
 
 // Some kind of default settings, might be overridden in ::init
 StartMenuScreen::StartMenuScreen()
@@ -183,6 +193,11 @@ void StartMenuScreen::render( int xm, int ym, float a )
 #endif
 
 	drawString(font, version, versionPosX, 62, /*50,*/ 0xffcccccc);//0x666666);
+#ifdef MCPE_VR
+	if (getTimeS() - gQuitAskedAt < kQuitWindow) {
+		drawCenteredString(font, "Press Menu again to quit", width / 2, height - 16, 0xffffff);
+	}
+#endif
 	drawString(font, copyright, copyrightPosX, height - 10, 0xffffff);
 
 	Screen::render(xm, ym, a);
@@ -206,6 +221,17 @@ void StartMenuScreen::_updateLicense()
 }
 
 bool StartMenuScreen::handleBackEvent( bool isDown ) {
+#ifdef MCPE_VR
+	if (!isDown) return true;
+	const float now = getTimeS();
+	if (now - gQuitAskedAt < kQuitWindow) {
+		minecraft->quit();
+	} else {
+		gQuitAskedAt = now;
+	}
+	return true;
+#else
 	minecraft->quit();
 	return true;
+#endif
 }

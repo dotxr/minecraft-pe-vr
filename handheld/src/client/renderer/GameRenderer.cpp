@@ -37,7 +37,9 @@ static int _shTicks = -1;
 static void setPerspective(float fovDeg, float aspect, float zNear, float zFar) {
 #ifdef MCPE_VR
 	if (vr::isActive()) {
-		vr::setEyeProjection(zNear, zFar);
+		// A 10 cm near plane keeps the 24-bit depth buffer precise out to the 5x render
+		// distance, where a 5 cm plane made distant blocks flicker against each other.
+		vr::setEyeProjection(0.1f, zFar);
 		return;
 	}
 #endif
@@ -334,6 +336,14 @@ void GameRenderer::renderVr(float a) {
 		zOff = cameraEntity->zOld + (cameraEntity->z - cameraEntity->zOld) * a;
 	}
 
+	if (drawWorld) {
+		// Rebuilding chunk geometry is the costly part of a world pass; doing it once per
+		// frame instead of once per eye halves that work.
+		TIMER_PUSH("dirty");
+		mc->levelRenderer->updateDirtyChunks(cameraEntity, false);
+		TIMER_POP();
+	}
+
 	for (int eye = 0; eye < 2; ++eye) {
 		vr::beginEye(eye, 0, 0, 0);
 		if (vr::state().currentEye < 0) continue;
@@ -407,7 +417,9 @@ void GameRenderer::renderLevelPass(float a, int i, Mob* cameraEntity, float xOff
 
 		TIMER_POP_PUSH("culling");
         mc->levelRenderer->cull(&frustum, a);
+#ifndef MCPE_VR
         mc->levelRenderer->updateDirtyChunks(cameraEntity, false);
+#endif
 
 		if(mc->options.fancyGraphics) {
 			prepareAndRenderClouds(levelRenderer, a);
