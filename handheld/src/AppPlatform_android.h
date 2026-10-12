@@ -562,12 +562,17 @@ public:
         return t*t == n;
     }
 
+	// Under VR the soft keyboard is drawn in the headset (VrKeyboard), not by Android.
 	virtual void showKeyboard() {
+#ifndef MCPE_VR
 		showKeyboard(true);
+#endif
 		super::showKeyboard();
 	}
 	virtual void hideKeyboard() {
+#ifndef MCPE_VR
 		showKeyboard(false);
+#endif
 		super::hideKeyboard();
 	}
 	virtual void showKeyboard(bool bShow) {

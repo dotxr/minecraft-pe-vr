@@ -44,6 +44,7 @@ set(GAME_SOURCES
     ${HANDHELD}/src/client/gui/Gui.cpp
     ${HANDHELD}/src/client/gui/GuiComponent.cpp
     ${HANDHELD}/src/client/gui/Screen.cpp
+    ${HANDHELD}/src/client/gui/VrKeyboard.cpp
     ${HANDHELD}/src/client/gui/screens/ScreenChooser.cpp
     ${HANDHELD}/src/client/gui/screens/ArmorScreen.cpp
     ${HANDHELD}/src/client/gui/screens/ChatScreen.cpp

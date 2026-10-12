@@ -18,6 +18,23 @@ export ANDROID_HOME=/path/to/android-sdk
 
 The APK is written to `app/build/outputs/apk/debug/app-debug.apk`. A CI workflow (`.github/workflows/build-quest.yml`) builds it on every push and uploads it as an artifact.
 
+#### Signed release build
+
+The release build is optimised (smaller native library) and is signed from a local `keystore.properties` file in `handheld/project/quest`, which is gitignored so the password is never committed:
+
+```properties
+storeFile=/absolute/path/to/your.keystore
+storePassword=...
+keyAlias=...
+keyPassword=...
+```
+
+```bash
+./gradlew :app:assembleRelease
+```
+
+It is written to `app/build/outputs/apk/release/app-release.apk`. Without `keystore.properties` the release APK is left unsigned.
+
 ### Install
 
 Enable developer mode on the headset, then:
@@ -45,13 +62,17 @@ The app appears in the Unknown Sources section of the library and launches as a 
 | Left Y | Block selection (inventory) |
 | Left menu | Pause, or close the open screen |
 | Right controller pointer + trigger | Click in menus, inventory and options |
+| Right stick click (with a screen open) | Show or hide the on-screen keyboard |
 
 The HUD and every menu are drawn onto a head-locked panel. Use the right controller ray to click on it.
+
+Text entry: the headset has no soft keyboard, so when a sign is open (use it with the right grip) an on-screen keyboard appears under the panel. Click its keys with the right controller. Shift applies to the next letter, `<-` deletes, `enter` starts a new line, and `hide` closes the keyboard. Chat is not reachable in this version of the game, so it has no VR entry point.
 
 ### How it works
 
 - `src/platform/vr`: OpenXR session (instance, EGL context, per-eye swapchains, controller actions), per-eye render targets, the GUI panel and laser, and the controller input holder.
 - `src/platform/gles1_shim.cpp`: the renderer's GLES 1.1 fixed-function calls are implemented on GLES 3, because OpenXR only provides GLES 3 contexts. `tests/gles1_shim/run.sh` renders one scene with desktop GL 2.1 and with the shim and compares the pixels. Run it with Mesa installed.
+- `tests/vr_game` builds the real game for the desktop and runs it against Monado in headless mode, with scripted controller input: it creates a world, plays it for 600 frames, and checks the on-screen keyboard. Build it with `cmake` pointed at that directory (it needs Monado running, see `tests/vr_session`).
 - `MCPE_VR` is defined only by the Quest build. The iOS, Windows and Raspberry Pi builds never reference the VR code.
 
 ### Status and limitations
@@ -62,7 +83,7 @@ The HUD and every menu are drawn onto a head-locked panel. Use the right control
 - Block targeting follows the right controller, with the origin at the eye, so the laser and the targeted block can differ slightly from a hand-to-eye alignment.
 - Touch-only controls (the on-screen joystick and buttons) are replaced by the controllers.
 - Multiplayer (RakNet) is still untested on this platform.
-- Android system dialogs (world name, seed, text entry) appear as 2D panels.
+- World naming is skipped in VR and uses the default name. Sign text uses the on-screen keyboard above.
 
 ---
 

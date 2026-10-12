@@ -2,7 +2,10 @@
 // headless). It creates a world the way the RPi build does, then plays it for a few
 // hundred frames through the VR path, with synthetic controller input: walk, turn, break
 // and place. It exits non-zero if the session never runs or the level never loads.
+#include "AppPlatform.h"
 #include "NinecraftApp.h"
+#include "client/renderer/GameRenderer.h"
+#include "platform/input/Keyboard.h"
 #include "host_platform.h"
 #include "platform/gles1_shim.h"
 #include "platform/vr/vr_render.h"
@@ -47,6 +50,18 @@ void scriptControllers(int frame) {
     left.buttonY = right.buttonA = false;
 }
 
+// Presses the space bar on the VR keyboard and checks that a space reaches the text
+// queue, which is where sign editing reads its characters. The coordinates are GUI
+// canvas pixels: the bottom row's centre key, on a 1280x720 canvas.
+bool exerciseKeyboard(Minecraft* mc, AppPlatform& platform) {
+    platform.showKeyboard();
+    const bool consumed = mc->gameRenderer->keyboard().pointerPressed(mc, 639, 672);
+    const bool typed = Keyboard::nextTextChar() && Keyboard::getChar() == ' ';
+    platform.hideKeyboard();
+    printf("keyboard: space pressed=%d typed=%d\n", consumed, typed);
+    return consumed && typed;
+}
+
 }  // namespace
 
 int main() {
@@ -75,6 +90,7 @@ int main() {
 
     int framesRun = 0, framesPlayed = 0;
     bool levelReady = false;
+    bool keyboardOk = false;
     for (int frame = 0; frame < kMaxFrames && framesPlayed < kPlayFrames && !xr::shouldQuit(); ++frame) {
         xr::pollEvents();
         xr::beginFrame();
@@ -91,6 +107,7 @@ int main() {
                     levelReady = true;
                     printf("level ready after %d frames; player at %.1f %.1f %.1f\n", framesRun,
                            app->player->x, app->player->y, app->player->z);
+                    keyboardOk = exerciseKeyboard(app, platform);
                 }
                 scriptControllers(framesPlayed);
                 ++framesPlayed;
@@ -112,7 +129,7 @@ int main() {
     delete app;
     vr::renderShutdown();
     xr::shutdown();
-    const bool ok = levelReady && framesPlayed >= kPlayFrames;
+    const bool ok = levelReady && framesPlayed >= kPlayFrames && keyboardOk;
     printf(ok ? "PASS\n" : "FAIL\n");
     return ok ? 0 : 1;
 }

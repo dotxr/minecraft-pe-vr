@@ -15,6 +15,8 @@ class Minecraft;
 class Entity;
 class ItemInHandRenderer;
 class LevelRenderer;
+#include "../gui/VrKeyboard.h"
+
 class GameRenderer
 {
 public:
@@ -58,8 +60,12 @@ private:
 public:
 	ItemInHandRenderer* itemInHandRenderer;
 
+	// The headset's on-screen keyboard, shared with the VR input code.
+	VrKeyboard& keyboard() { return vrKeyboard; }
+
 private:
 	Minecraft* mc;
+	VrKeyboard vrKeyboard;
 
 	float renderDistance;
 	int _tick;

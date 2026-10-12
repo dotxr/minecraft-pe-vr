@@ -9,6 +9,8 @@
 
 #include "../../NinecraftApp.h"
 #include "../../client/Minecraft.h"
+#include "../../client/renderer/GameRenderer.h"
+#include "../../client/gui/VrKeyboard.h"
 #include "../../client/player/LocalPlayer.h"
 #include "../../client/player/input/IBuildInput.h"
 #include "../../client/player/input/IInputHolder.h"
@@ -152,6 +154,13 @@ bool gMenuWasDown = false;
 // Trigger state of the last GUI click, so press and release are reported once.
 bool gGuiTriggerWasDown = false;
 
+// True while the press that started on the on-screen keyboard is held, so its
+// release isn't sent to the screen underneath.
+bool gPressOnKeyboard = false;
+
+// Right stick click state, so a click toggles the keyboard once.
+bool gStickClickWasDown = false;
+
 // Y button state, so a press opens the inventory once.
 bool gYWasDown = false;
 
@@ -170,15 +179,32 @@ void updateInput(NinecraftApp* app, Minecraft* mc) {
     float guiX = 0, guiY = 0;
     bool hit = aimAtPanel(&guiX, &guiY);
     bool trigger = st.hands[kRight].trigger > kTriggerPressed;
+    const bool pressEdge = trigger && !gGuiTriggerWasDown;
+    const bool releaseEdge = !trigger && gGuiTriggerWasDown;
+
+    // Presses on the on-screen keyboard type into it; the screen never sees them.
+    if (pressEdge) {
+        gPressOnKeyboard = hit && mc->platform()->isKeyboardVisible() &&
+            mc->gameRenderer->keyboard().pointerPressed(mc, (int)guiX, (int)guiY);
+    }
     if (mc->screen && hit) {
         Mouse::feed(MouseAction::ACTION_MOVE, 0, (short)guiX, (short)guiY);
-        if (trigger && !gGuiTriggerWasDown) {
+        if (pressEdge && !gPressOnKeyboard) {
             Mouse::feed(MouseAction::ACTION_LEFT, MouseAction::DATA_DOWN, (short)guiX, (short)guiY);
-        } else if (!trigger && gGuiTriggerWasDown) {
+        } else if (releaseEdge && !gPressOnKeyboard) {
             Mouse::feed(MouseAction::ACTION_LEFT, MouseAction::DATA_UP, (short)guiX, (short)guiY);
         }
     }
+    if (releaseEdge) gPressOnKeyboard = false;
     gGuiTriggerWasDown = trigger;
+
+    // Right stick click shows or hides the on-screen keyboard while a screen is open.
+    bool stickClick = st.hands[kRight].stickClick;
+    if (stickClick && !gStickClickWasDown && mc->screen) {
+        if (mc->platform()->isKeyboardVisible()) mc->platform()->hideKeyboard();
+        else mc->platform()->showKeyboard();
+    }
+    gStickClickWasDown = stickClick;
 
     // Holding the grip keeps the use key held, so charged items (the bow, eating)
     // release when the grip is let go.

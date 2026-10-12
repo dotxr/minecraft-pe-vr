@@ -28,6 +28,7 @@
 #include "../gui/components/ImageButton.h"
 #include "Tesselator.h"
 #include "../../platform/vr/vr_hooks.h"
+#include "../gui/VrKeyboard.h"
 
 static int _shTicks = -1;
 
@@ -306,6 +307,10 @@ void GameRenderer::renderVr(float a) {
 	}
 	if (mc->screen != NULL) {
 		mc->screen->render(xMouse, yMouse, a);
+	}
+	// The headset has no soft keyboard, so text entry (signs) draws its own.
+	if (mc->platform()->isKeyboardVisible()) {
+		vrKeyboard.render(mc);
 	}
 	vr::endGui();
 
