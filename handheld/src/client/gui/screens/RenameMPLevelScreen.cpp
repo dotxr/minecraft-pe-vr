@@ -18,7 +18,9 @@ RenameMPLevelScreen::RenameMPLevelScreen( const std::string& levelId )
 }
 
 void RenameMPLevelScreen::init() {
+#ifndef MCPE_VR
 	minecraft->platform()->createUserInput(DialogDefinitions::DIALOG_RENAME_MP_WORLD);
+#endif
 }
 
 void RenameMPLevelScreen::render(int xm, int ym, float a)
@@ -27,6 +29,9 @@ void RenameMPLevelScreen::render(int xm, int ym, float a)
 
 	#ifdef WIN32
 		minecraft->getLevelSource()->renameLevel(_levelId, "Save?Level");
+		minecraft->screenChooser.setScreen(SCREEN_STARTMENU);
+	#elif defined(MCPE_VR)
+		// No dialog in the headset: keep the world's name and return.
 		minecraft->screenChooser.setScreen(SCREEN_STARTMENU);
 	#else
 		int status = minecraft->platform()->getUserInputStatus();

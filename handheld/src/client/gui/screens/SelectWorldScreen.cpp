@@ -252,7 +252,9 @@ void SelectWorldScreen::buttonClicked(Button* button)
 		//minecraft->setScreen(new ProgressScreen());
 
 		if (_state == _STATE_DEFAULT && !_hasStartedLevel) {
+#ifndef MCPE_VR
 			minecraft->platform()->createUserInput(DialogDefinitions::DIALOG_CREATE_NEW_WORLD);
+#endif
 			_state = _STATE_CREATEWORLD;
 		}
 	}
@@ -295,7 +297,9 @@ static char ILLEGAL_FILE_CHARACTERS[] = {
 void SelectWorldScreen::tick()
 {
 	if (_state == _STATE_CREATEWORLD) {
-		#if defined(RPI)
+		// The headset has no Android dialog to ask for a name, seed or mode, so a world is
+		// created with the same defaults as the RPi build (creative, time-based seed).
+		#if defined(RPI) || defined(MCPE_VR)
 			std::string levelId = getUniqueLevelName("world");
 			LevelSettings settings(getEpochTimeS(), GameType::Creative);
 			minecraft->selectLevel(levelId, levelId, settings);
