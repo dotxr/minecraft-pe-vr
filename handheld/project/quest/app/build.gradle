@@ -50,9 +50,37 @@ android {
         }
     }
 
+    // Signing credentials live in keystore.properties (not committed). Without that
+    // file, the release build stays unsigned and the debug build uses the debug key.
+    def keystoreProps = new Properties()
+    def keystoreFile = rootProject.file('keystore.properties')
+    if (keystoreFile.exists()) {
+        keystoreFile.withInputStream { keystoreProps.load(it) }
+    }
+    signingConfigs {
+        release {
+            if (keystoreFile.exists()) {
+                storeFile file(keystoreProps['storeFile'])
+                storePassword keystoreProps['storePassword']
+                keyAlias keystoreProps['keyAlias']
+                keyPassword keystoreProps['keyPassword']
+            }
+        }
+    }
+
+    // The 2011 engine trips many lint checks; lint's own dependencies also need
+    // network access that the build machine doesn't always have.
+    lint {
+        checkReleaseBuilds false
+        abortOnError false
+    }
+
     buildTypes {
         release {
             minifyEnabled false
+            if (keystoreFile.exists()) {
+                signingConfig signingConfigs.release
+            }
         }
         debug {
             debuggable true

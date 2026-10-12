@@ -4,3 +4,6 @@
 # Xcode user data
 xcuserdata/
 *.xcuserstate
+
+# Local signing credentials for the Quest build; never commit.
+handheld/project/quest/keystore.properties
