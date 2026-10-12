@@ -200,6 +200,7 @@ public:
 
         _screenWidth = env->CallIntMethod(instance, fWidth);
         _screenHeight = env->CallIntMethod(instance, fHeight);
+        return 0;
     }
 
     void tick() {

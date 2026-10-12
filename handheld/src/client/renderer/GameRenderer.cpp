@@ -27,8 +27,21 @@
 #include "Textures.h"
 #include "../gui/components/ImageButton.h"
 #include "Tesselator.h"
+#include "../../platform/vr/vr_hooks.h"
 
 static int _shTicks = -1;
+
+// Perspective for the current pass. In VR the eye's own frustum is used instead,
+// because the headset's field of view is asymmetric and per eye.
+static void setPerspective(float fovDeg, float aspect, float zNear, float zFar) {
+#ifdef MCPE_VR
+	if (vr::isActive()) {
+		vr::setEyeProjection(zNear, zFar);
+		return;
+	}
+#endif
+	gluPerspective(fovDeg, aspect, zNear, zFar);
+}
 
 GameRenderer::GameRenderer( Minecraft* mc )
 :	mc(mc),
@@ -103,17 +116,20 @@ void GameRenderer::setupCamera(float a, int eye) {
     if (zoom != 1) {
         glTranslatef2((float) zoom_x, (float) -zoom_y, 0);
 		glScalef2(zoom, zoom, 1);
-        gluPerspective(_setupCameraFov = getFov(a, true), mc->width / (float) mc->height, 0.05f, renderDistance);
+        setPerspective(_setupCameraFov = getFov(a, true), mc->width / (float) mc->height, 0.05f, renderDistance);
     } else {
-        gluPerspective(_setupCameraFov = getFov(a, true), mc->width / (float) mc->height, 0.05f, renderDistance);
+        setPerspective(_setupCameraFov = getFov(a, true), mc->width / (float) mc->height, 0.05f, renderDistance);
     }
 
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity2();
     if (mc->options.anaglyph3d) glTranslatef2((eye * 2 - 1) * 0.10f, 0, 0);
 
-    bobHurt(a);
-    if (mc->options.bobView) bobView(a);
+    // Bobbing and hurt tilt rotate the view, which causes discomfort in VR.
+    if (!MCPE_VR_ACTIVE) {
+        bobHurt(a);
+        if (mc->options.bobView) bobView(a);
+    }
 	 
 	moveCameraToPlayer(a);
 }
@@ -122,6 +138,11 @@ extern int _t_keepPic;
 
 /*public*/
 void GameRenderer::render(float a) {
+	if (MCPE_VR_ACTIVE) {
+		renderVr(a);
+		return;
+	}
+
 	TIMER_PUSH("mouse");
 	if (mc->player && mc->mouseGrabbed) {
         mc->mouseHandler.poll();
@@ -237,10 +258,9 @@ void GameRenderer::renderLevel(float a) {
 
 	TIMER_PUSH("pick");
     pick(a);
+	TIMER_POP();
 
     Mob* cameraEntity = mc->cameraTargetPlayer;
-    LevelRenderer* levelRenderer = mc->levelRenderer;
-    ParticleEngine* particleEngine = mc->particleEngine;
     float xOff = cameraEntity->xOld + (cameraEntity->x - cameraEntity->xOld) * a;
     float yOff = cameraEntity->yOld + (cameraEntity->y - cameraEntity->yOld) * a;
     float zOff = cameraEntity->zOld + (cameraEntity->z - cameraEntity->zOld) * a;
@@ -251,7 +271,79 @@ void GameRenderer::renderLevel(float a) {
             else glColorMask(true, false, false, false);
         }
 
-		TIMER_POP_PUSH("clear");
+        renderLevelPass(a, i, cameraEntity, xOff, yOff, zOff);
+
+        if (!mc->options.anaglyph3d) {
+            break;
+        }
+    }
+    glColorMask(true, true, true, false);
+}
+
+/*private*/
+void GameRenderer::renderVr(float a) {
+#ifdef MCPE_VR
+	TIMER_PUSH("vr");
+
+	// Logical GUI pass first: HUD and screens are drawn into the panel canvas.
+	int xMouse = (int)(Mouse::getX() * Gui::InvGuiScale);
+	int yMouse = (int)(Mouse::getY() * Gui::InvGuiScale);
+	bool levelReady = mc->isLevelGenerated();
+	bool guiCoversWorld = mc->screen && !mc->screen->renderGameBehind();
+
+	vr::beginGui();
+	setupGuiScreen(true);
+	if (levelReady && !mc->options.hideGui) {
+		mc->gui.render(a, mc->screen != NULL, xMouse, yMouse);
+	}
+	if (mc->screen != NULL) {
+		mc->screen->render(xMouse, yMouse, a);
+	}
+	vr::endGui();
+
+	// The world is only needed while a level is loaded and no opaque screen covers it.
+	bool drawWorld = levelReady && !guiCoversWorld && mc->cameraTargetPlayer != NULL;
+	if (drawWorld) {
+		TIMER_PUSH("pick");
+		pick(a);
+		TIMER_POP();
+	}
+
+	Mob* cameraEntity = mc->cameraTargetPlayer;
+	float xOff = 0, yOff = 0, zOff = 0;
+	if (drawWorld) {
+		xOff = cameraEntity->xOld + (cameraEntity->x - cameraEntity->xOld) * a;
+		yOff = cameraEntity->yOld + (cameraEntity->y - cameraEntity->yOld) * a;
+		zOff = cameraEntity->zOld + (cameraEntity->z - cameraEntity->zOld) * a;
+	}
+
+	for (int eye = 0; eye < 2; ++eye) {
+		vr::beginEye(eye, 0, 0, 0);
+		if (vr::state().currentEye < 0) continue;
+
+		if (drawWorld) {
+			renderLevelPass(a, eye, cameraEntity, xOff, yOff, zOff);
+		} else {
+			setupClearColor(a);
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		}
+
+		vr::drawPanel(eye);
+		vr::endEye(eye);
+	}
+	TIMER_POP();
+#endif
+}
+
+void GameRenderer::renderLevelPass(float a, int i, Mob* cameraEntity, float xOff, float yOff, float zOff) {
+    LevelRenderer* levelRenderer = mc->levelRenderer;
+    ParticleEngine* particleEngine = mc->particleEngine;
+
+		TIMER_PUSH("clear");
+#ifdef MCPE_VR
+		if (vr::isActive()) glViewport(0, 0, vr::state().eyeWidth, vr::state().eyeHeight);
+		else
+#endif
 		glViewport(0, 0, mc->width, mc->height);
 		setupClearColor(a);
 
@@ -377,14 +469,9 @@ void GameRenderer::renderLevel(float a) {
             renderItemInHand(a, i);
         }
 
-        if (!mc->options.anaglyph3d) {
-			TIMER_POP();
-            return;
-        }
-    }
-    glColorMask(true, true, true, false);
-	TIMER_POP();
+        TIMER_POP();
 }
+
 
 void GameRenderer::tickFov() {
 	if (mc->cameraTargetPlayer != mc->player)
@@ -492,6 +579,14 @@ void GameRenderer::moveCameraToPlayer(float a) {
 		//if (_t_keepPic > 0)
 	}
     glTranslatef2(0, heightOffset, 0);
+
+#ifdef MCPE_VR
+    // Second eye: shift the (world-oriented) scene so the camera sits at this eye.
+    if (vr::isActive()) {
+        vr::Vec3 off = vr::eyeOffset(vr::state().currentEye < 0 ? 0 : vr::state().currentEye);
+        glTranslatef(-off.x, -off.y, -off.z);
+    }
+#endif
 }
 
 /*private*/
@@ -876,13 +971,15 @@ void GameRenderer::renderItemInHand(float a, int eye) {
     if (mc->options.anaglyph3d) glTranslatef2((eye * 2 - 1) * 0.10f, 0, 0);
 
     glPushMatrix2();
-    bobHurt(a);
-    if (mc->options.bobView) bobView(a);
+    if (!MCPE_VR_ACTIVE) {
+        bobHurt(a);
+        if (mc->options.bobView) bobView(a);
+    }
 
     if (!mc->options.thirdPersonView && (mc->cameraTargetPlayer->isPlayer() && !((Player*)mc->cameraTargetPlayer)->isSleeping())) {
         if (!mc->options.hideGui) {
 			float fov = getFov(a, false);
-			if (fov != _setupCameraFov) {
+			if (!MCPE_VR_ACTIVE && fov != _setupCameraFov) {
 				glMatrixMode(GL_PROJECTION);
 				glLoadIdentity();
 				gluPerspective(fov, mc->width / (float) mc->height, 0.05f, renderDistance);
@@ -895,9 +992,9 @@ void GameRenderer::renderItemInHand(float a, int eye) {
     glPopMatrix2();
     if (!mc->options.thirdPersonView && (mc->cameraTargetPlayer->isPlayer() && !((Player*)mc->cameraTargetPlayer)->isSleeping())) {
         itemInHandRenderer->renderScreenEffect(a);
-        bobHurt(a);
+        if (!MCPE_VR_ACTIVE) bobHurt(a);
     }
-    if (mc->options.bobView) bobView(a);
+    if (mc->options.bobView && !MCPE_VR_ACTIVE) bobView(a);
 }
 
 void GameRenderer::onGraphicsReset()
@@ -926,7 +1023,7 @@ void GameRenderer::prepareAndRenderClouds( LevelRenderer* levelRenderer, float a
 	glMatrixMode(GL_PROJECTION);
 	glPushMatrix2();
 	glLoadIdentity2();
-	gluPerspective(_setupCameraFov = getFov(a, true), mc->width / (float) mc->height, 2, renderDistance * 512);
+	setPerspective(_setupCameraFov = getFov(a, true), mc->width / (float) mc->height, 2, renderDistance * 512);
 	glMatrixMode(GL_MODELVIEW);
 	glPushMatrix2();
 	setupFog(0);

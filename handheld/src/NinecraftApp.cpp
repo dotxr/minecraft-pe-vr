@@ -22,6 +22,7 @@
 #include "client/player/LocalPlayer.h"
 #ifndef STANDALONE_SERVER
 #include "client/renderer/gles.h"
+#include "platform/vr/vr_hooks.h"
 #include "client/renderer/Chunk.h"
 #include "client/renderer/LevelRenderer.h"
 #include "client/renderer/Tesselator.h"
@@ -149,6 +150,12 @@ void NinecraftApp::update()
 	//testCreationAndDestruction();
 	//testJoiningAndDestruction();
 #endif /*ANDROID_PUBLISH*/
+
+	// VR: controllers feed the GUI pointer and menu; the head drives the player's view.
+#ifdef MCPE_VR
+	vr::updateInput(this, this);
+	vr::syncPlayerToHead(player);
+#endif
 
 	Minecraft::update();
 

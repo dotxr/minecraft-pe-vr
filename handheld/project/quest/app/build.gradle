@@ -1,0 +1,66 @@
+plugins {
+    id 'com.android.application'
+}
+
+// The game's sources and assets stay in their original locations under
+// handheld/project/android; this module only adds the Quest manifest, the
+// OpenXR-aware native build, and the Java launcher.
+android {
+    namespace 'com.mojang.minecraftpe'
+    compileSdk 32
+    ndkVersion '26.1.10909125'
+
+    defaultConfig {
+        applicationId 'com.mojang.minecraftpe'
+        minSdk 29
+        targetSdk 32
+        versionCode 6100
+        versionName '0.6.1-quest'
+
+        ndk {
+            // Quest 2 / Quest 3 / Quest Pro are all arm64.
+            abiFilters 'arm64-v8a'
+        }
+        externalNativeBuild {
+            cmake {
+                cFlags '-fvisibility=hidden'
+                cppFlags '-fvisibility=hidden'
+            }
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path 'src/main/cpp/CMakeLists.txt'
+            version '3.22.1'
+        }
+    }
+
+    sourceSets {
+        main {
+            manifest.srcFile 'src/main/AndroidManifest.xml'
+            java.srcDirs = ['src/main/java', '../../android/src']
+            java {
+                // Carrier and store builds of the 2011 Android port; they need
+                // licensing SDKs that aren't in this repository.
+                exclude '**/Minecraft_Verizon.java', '**/Minecraft_Market.java', '**/Minecraft_Market_Demo.java'
+            }
+            res.srcDirs = ['src/main/res', '../../android/res']
+            assets.srcDirs = ['../../android/assets']
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+        }
+        debug {
+            debuggable true
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+}

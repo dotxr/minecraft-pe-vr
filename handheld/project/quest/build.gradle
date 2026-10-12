@@ -1,0 +1,4 @@
+// Root build for the Meta Quest (OpenXR) port of Minecraft PE 0.6.1.
+plugins {
+    id 'com.android.application' version '8.5.2' apply false
+}

@@ -1,6 +1,8 @@
 #ifndef NET_MINECRAFT_CLIENT_RENDERER__GameRenderer_H__
 #define NET_MINECRAFT_CLIENT_RENDERER__GameRenderer_H__
 
+class Mob;
+
 //package net.minecraft.client.renderer;
 
 #include "gles.h"
@@ -30,6 +32,7 @@ public:
 	void tick(int nTick, int maxTick);
 	void render(float a);
 	void renderLevel(float a);
+	void renderVr(float a);
 	void renderItemInHand(float a, int eye);
 
 	void onGraphicsReset();
@@ -50,6 +53,7 @@ private:
 
 	bool updateFreeformPickDirection(float a, Vec3& outDir);
 	void prepareAndRenderClouds(LevelRenderer* levelRenderer, float a);
+	void renderLevelPass(float a, int eye, Mob* cameraEntity, float xOff, float yOff, float zOff);
 
 public:
 	ItemInHandRenderer* itemInHandRenderer;

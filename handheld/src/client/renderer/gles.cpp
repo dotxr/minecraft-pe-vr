@@ -47,9 +47,14 @@ void glInit()
 }
 
 void anGenBuffers(GLsizei n, GLuint* buffers) {
+#ifdef MCPE_VR
+	// Real names, so buffers created here can't alias the GL names the GLES 1 shim creates.
+	glGenBuffers(n, buffers);
+#else
 	static GLuint k = 1;
 	for (int i = 0; i < n; ++i)
 		buffers[i] = ++k;
+#endif
 }
 
 #ifdef USE_VBO

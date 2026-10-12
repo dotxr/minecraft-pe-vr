@@ -1,3 +1,4 @@
+#include "../platform/vr/vr_hooks.h"
 #include "Minecraft.h"
 
 #if defined(APPLE_DEMO_PROMOTION)
@@ -1126,6 +1127,10 @@ bool Minecraft::useTouchscreen() {
 #ifdef RPI
 	return false;
 #endif
+	// The headset has no touch surface: its controllers drive the game instead.
+#ifdef MCPE_VR
+	if (vr::isActive()) return false;
+#endif
 	return options.useTouchScreen || !_supportsNonTouchscreen;
 }
 bool Minecraft::supportNonTouchScreen() {
@@ -1242,6 +1247,11 @@ void Minecraft::_reloadInput() {
 #ifndef STANDALONE_SERVER
 	delete inputHolder;
 
+#ifdef MCPE_VR
+	if (vr::state().enabled) {
+		inputHolder = vr::createInputHolder();
+	} else
+#endif
 	if (useTouchscreen()) {
 		inputHolder = new TouchInputHolder(this, &options);
 	} else {
