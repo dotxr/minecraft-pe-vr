@@ -332,7 +332,13 @@ void GameRenderer::renderVr(float a) {
 		if (drawWorld) {
 			renderLevelPass(a, eye, cameraEntity, xOff, yOff, zOff);
 		} else {
-			setupClearColor(a);
+			// Sky colour needs a level and a camera player; before the world exists (or
+			// under an opaque screen while loading) the eye is simply cleared to black.
+			if (levelReady && mc->cameraTargetPlayer != NULL) {
+				setupClearColor(a);
+			} else {
+				glClearColor(0, 0, 0, 1);
+			}
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		}
 

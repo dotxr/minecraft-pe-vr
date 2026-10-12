@@ -24,7 +24,7 @@
 #include <EGL/egl.h>
 #include <android/log.h>
 #include <cmath>
-#include <cstdint>
+#include <stdint.h>
 #include <cstring>
 #include <vector>
 
