@@ -35,12 +35,14 @@ The app appears in the Unknown Sources section of the library and launches as a 
 | Left stick | Move (click to sneak) |
 | Right stick left/right | Turn |
 | Right stick up/down (flick) | Previous / next hotbar slot |
-| Head | Look; the crosshair and block targeting follow the head |
+| Head | Look. Walking around in the room moves the view |
+| Right controller | Aim. The laser shows where blocks are targeted |
 | Right trigger (hold) | Break blocks and attack |
 | Right grip | Place or use the held item (repeats while held) |
 | Right A | Jump (flying: go up) |
 | Right B | Sneak (flying: go down) |
 | Left X | 2x2 crafting |
+| Left Y | Block selection (inventory) |
 | Left menu | Pause, or close the open screen |
 | Right controller pointer + trigger | Click in menus, inventory and options |
 
@@ -56,7 +58,7 @@ The HUD and every menu are drawn onto a head-locked panel. Use the right control
 
 - The port builds for arm64 and the native library links against OpenXR and GLES 3. The shim matches a reference renderer on a test scene.
 - It has **not** been run on a headset in this repository's development environment. Rendering speed, comfort and input feel need to be checked on hardware.
-- Block targeting uses the head direction, not the controller.
+- Block targeting follows the right controller, with the origin at the eye, so the laser and the targeted block can differ slightly from a hand-to-eye alignment.
 - Touch-only controls (the on-screen joystick and buttons) are replaced by the controllers.
 - Multiplayer (RakNet) is still untested on this platform.
 - Android system dialogs (world name, seed, text entry) appear as 2D panels.

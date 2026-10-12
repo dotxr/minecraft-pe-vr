@@ -762,8 +762,19 @@ void GameRenderer::pick(float a) {
     if (freeform) {
         isPicking = updateFreeformPickDirection(a, pickDirection);
     } else {
-        mc->hitResult = mc->cameraTargetPlayer->pick(range, a);
-        pickDirection = mc->cameraTargetPlayer->getViewVector(a);
+#ifdef MCPE_VR
+        // In VR, blocks are targeted along the right controller, not the head.
+        vr::Vec3 aim;
+        if (vr::isActive() && vr::aimWorldDirection(&aim)) {
+            pickDirection = Vec3(aim.x, aim.y, aim.z);
+            Vec3 eye = mc->cameraTargetPlayer->getPos(a);
+            mc->hitResult = mc->level->clip(eye, eye + pickDirection * range);
+        } else
+#endif
+        {
+            mc->hitResult = mc->cameraTargetPlayer->pick(range, a);
+            pickDirection = mc->cameraTargetPlayer->getViewVector(a);
+        }
     }
 
     Vec3  from = mc->cameraTargetPlayer->getPos(a);

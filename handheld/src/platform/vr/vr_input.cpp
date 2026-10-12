@@ -14,6 +14,7 @@
 #include "../../client/player/input/IMoveInput.h"
 #include "../../client/player/input/ITurnInput.h"
 #include "../../client/gui/Screen.h"
+#include "../../client/gui/screens/ScreenChooser.h"
 #include "../../world/entity/player/Inventory.h"
 #include "../../world/entity/player/Player.h"
 #include "../../world/item/crafting/Recipe.h"
@@ -150,6 +151,9 @@ bool gMenuWasDown = false;
 // Trigger state of the last GUI click, so press and release are reported once.
 bool gGuiTriggerWasDown = false;
 
+// Y button state, so a press opens the inventory once.
+bool gYWasDown = false;
+
 }  // namespace
 
 IInputHolder* createInputHolder() {
@@ -175,6 +179,14 @@ void updateInput(NinecraftApp* app, Minecraft* mc) {
     }
     gGuiTriggerWasDown = trigger;
 
+    // Y on the left controller opens block selection (the inventory), as the "More..."
+    // slot in the hotbar does. Only from play, not over another screen.
+    bool yDown = st.hands[kLeft].buttonY;
+    if (yDown && !gYWasDown && !mc->screen) {
+        mc->screenChooser.setScreen(SCREEN_BLOCKSELECTION);
+    }
+    gYWasDown = yDown;
+
     // Menu button acts as the Android back button: pause in game, close screens.
     bool menu = st.hands[kLeft].menu;
     if (menu != gMenuWasDown) {
@@ -199,6 +211,9 @@ void syncPlayerToHead(LocalPlayer* player) {
         // room's forward direction doesn't snap the view.
         st.bodyYaw = player->yRot - yawOf(headForward);
         st.bodyYawAligned = true;
+        // Standing pose at the start of play is the zero point for physical movement.
+        st.calibrationHead = st.headPosition;
+        st.headCalibrated = true;
     }
 
     float turn = deadZone(st.hands[kRight].stickX);

@@ -59,6 +59,11 @@ struct State {
     float bodyYaw;
     bool bodyYawAligned;  // set once bodyYaw has been matched to the game's yaw
 
+    // Head position when the player was aligned. Movement away from it, physically,
+    // moves the game camera (crouching lowers the view, stepping sideways shifts it).
+    Vec3 calibrationHead;
+    bool headCalibrated;
+
     int eyeWidth, eyeHeight;  // swapchain size per eye
     int guiWidth, guiHeight;  // logical GUI canvas, also the game's width/height
 

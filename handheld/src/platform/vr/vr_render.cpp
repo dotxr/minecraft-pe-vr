@@ -177,7 +177,20 @@ void setEyeProjection(float zNear, float zFar) {
 Vec3 eyeOffset(int eye) {
     State& st = state();
     Vec3 d = sub(st.eyes[eye].position, st.headPosition);
+    if (st.headCalibrated) d = add(d, sub(st.headPosition, st.calibrationHead));
     return rotateYaw(d, st.bodyYaw);
+}
+
+bool aimWorldDirection(Vec3* out) {
+    State& st = state();
+    const Hand& hand = st.hands[kRight];
+    if (!isActive() || !hand.aimValid) return false;
+    *out = rotateYaw(forward(hand.aimOrientation), st.bodyYaw);
+    return true;
+}
+
+Vec3 aimWorldOrigin() {
+    return state().headPosition;
 }
 
 bool aimAtPanel(float* guiX, float* guiY) {
