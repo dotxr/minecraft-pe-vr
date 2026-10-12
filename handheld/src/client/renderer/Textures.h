@@ -29,6 +29,9 @@ public:
 
 	void addDynamicTexture(DynamicTexture* dynamicTexture);
 
+	// Forgets the cached binding, for code that binds a texture without going through bind().
+	void invalidateBinding() { lastBoundTexture = Textures::InvalidId; }
+
 	__inline void bind(TextureId id) {
 		if (id != Textures::InvalidId && lastBoundTexture != id) {
 			glBindTexture2(GL_TEXTURE_2D, id);

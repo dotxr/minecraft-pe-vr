@@ -1,6 +1,70 @@
 # Minecraft Pocket Edition (v0.6.1) Source Code
 
 This repository contains the original source code for **Minecraft: Pocket Edition v0.6.1**, supporting both Android and iOS platforms.
+
+## Meta Quest (standalone VR APK)
+
+The `quest` port builds a standalone arm64 APK for Meta Quest headsets. It renders in stereo through OpenXR and uses the controllers for input. It lives in `handheld/project/quest`; the game sources, assets and resources are shared with the Android project in `handheld/project/android`.
+
+### Build
+
+Requirements: JDK 17, Android SDK with `platforms;android-32`, `build-tools;34.0.0`, `ndk;26.1.10909125` and `cmake;3.22.1`, and network access (the OpenXR loader is fetched from GitHub at configure time).
+
+```bash
+cd handheld/project/quest
+export ANDROID_HOME=/path/to/android-sdk
+./gradlew :app:assembleDebug
+```
+
+The APK is written to `app/build/outputs/apk/debug/app-debug.apk`. A CI workflow (`.github/workflows/build-quest.yml`) builds it on every push and uploads it as an artifact.
+
+### Install
+
+Enable developer mode on the headset, then:
+
+```bash
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+```
+
+The app appears in the Unknown Sources section of the library and launches as a VR app.
+
+### Controls
+
+| Input | Action |
+| --- | --- |
+| Left stick | Move (click to sneak) |
+| Right stick left/right | Turn |
+| Right stick up/down (flick) | Previous / next hotbar slot |
+| Head | Look; the crosshair and block targeting follow the head |
+| Right trigger (hold) | Break blocks and attack |
+| Right grip | Place or use the held item (repeats while held) |
+| Right A | Jump (flying: go up) |
+| Right B | Sneak (flying: go down) |
+| Left X | 2x2 crafting |
+| Left menu | Pause, or close the open screen |
+| Right controller pointer + trigger | Click in menus, inventory and options |
+
+The HUD and every menu are drawn onto a head-locked panel. Use the right controller ray to click on it.
+
+### How it works
+
+- `src/platform/vr`: OpenXR session (instance, EGL context, per-eye swapchains, controller actions), per-eye render targets, the GUI panel and laser, and the controller input holder.
+- `src/platform/gles1_shim.cpp`: the renderer's GLES 1.1 fixed-function calls are implemented on GLES 3, because OpenXR only provides GLES 3 contexts. `tests/gles1_shim/run.sh` renders one scene with desktop GL 2.1 and with the shim and compares the pixels. Run it with Mesa installed.
+- `MCPE_VR` is defined only by the Quest build. The iOS, Windows and Raspberry Pi builds never reference the VR code.
+
+### Status and limitations
+
+- The port builds for arm64 and the native library links against OpenXR and GLES 3. The shim matches a reference renderer on a test scene.
+- It has **not** been run on a headset in this repository's development environment. Rendering speed, comfort and input feel need to be checked on hardware.
+- Block targeting uses the head direction, not the controller.
+- Touch-only controls (the on-screen joystick and buttons) are replaced by the controllers.
+- Multiplayer (RakNet) is still untested on this platform.
+- Android system dialogs (world name, seed, text entry) appear as 2D panels.
+
+---
+
+## Original iOS and Android source
+
 Right now you have to compile this yourself, but I'll supply a precompiled .ipa to put on you iPhone soon! (not everyone has Macs!)
 
 > [!WARNING]

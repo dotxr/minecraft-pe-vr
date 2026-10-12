@@ -30,7 +30,8 @@
 namespace {
 
 const char* const kAppName = "Minecraft PE (Quest)";
-const GLenum kSwapchainFormat = GL_RGBA8;
+const GLenum kPreferredSwapchainFormat = GL_RGBA8;
+const GLenum kSrgbSwapchainFormat = GL_SRGB8_ALPHA8;
 
 struct Session {
     JavaVM* vm;
@@ -224,6 +225,20 @@ bool createEgl() {
     return true;
 }
 
+// Picks a colour format the runtime offers. The game writes gamma-encoded colour,
+// so the linear RGBA8 format is preferred over an sRGB one.
+int64_t chooseSwapchainFormat() {
+    uint32_t count = 0;
+    xrEnumerateSwapchainFormats(xs.session, 0, &count, NULL);
+    std::vector<int64_t> formats(count);
+    if (count > 0) xrEnumerateSwapchainFormats(xs.session, count, &count, formats.data());
+    for (uint32_t i = 0; i < count; ++i)
+        if (formats[i] == kPreferredSwapchainFormat) return formats[i];
+    for (uint32_t i = 0; i < count; ++i)
+        if (formats[i] == kSrgbSwapchainFormat) return formats[i];
+    return count > 0 ? formats[0] : kPreferredSwapchainFormat;
+}
+
 bool createSwapchains() {
     uint32_t viewCount = 0;
     XR_CHECK_LOG(xrEnumerateViewConfigurationViews(xs.instance, xs.systemId,
@@ -245,10 +260,11 @@ bool createSwapchains() {
     if (xs.viewConfigs[1].recommendedImageRectHeight > xs.eyeHeight) xs.eyeHeight = xs.viewConfigs[1].recommendedImageRectHeight;
     XR_LOG("eye swapchain %ux%u", xs.eyeWidth, xs.eyeHeight);
 
+    const int64_t format = chooseSwapchainFormat();
     for (int eye = 0; eye < 2; ++eye) {
         XrSwapchainCreateInfo info = {XR_TYPE_SWAPCHAIN_CREATE_INFO};
         info.usageFlags = XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT | XR_SWAPCHAIN_USAGE_SAMPLED_BIT;
-        info.format = kSwapchainFormat;
+        info.format = format;
         info.sampleCount = 1;
         info.width = xs.eyeWidth;
         info.height = xs.eyeHeight;

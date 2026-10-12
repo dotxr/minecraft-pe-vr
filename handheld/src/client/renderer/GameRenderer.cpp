@@ -291,6 +291,14 @@ void GameRenderer::renderVr(float a) {
 	bool levelReady = mc->isLevelGenerated();
 	bool guiCoversWorld = mc->screen && !mc->screen->renderGameBehind();
 
+	// The GUI expects the state the level leaves behind (see renderLevelPass).
+	glDepthMask(GL_TRUE);
+	glEnable2(GL_DEPTH_TEST);
+	glEnable2(GL_CULL_FACE);
+	glDisable2(GL_BLEND);
+	glEnable2(GL_ALPHA_TEST);
+	glDisable2(GL_FOG);
+
 	vr::beginGui();
 	setupGuiScreen(true);
 	if (levelReady && !mc->options.hideGui) {
@@ -329,6 +337,8 @@ void GameRenderer::renderVr(float a) {
 		}
 
 		vr::drawPanel(eye);
+		// drawPanel binds the GUI canvas behind Textures' back.
+		mc->textures->invalidateBinding();
 		vr::endEye(eye);
 	}
 	TIMER_POP();
