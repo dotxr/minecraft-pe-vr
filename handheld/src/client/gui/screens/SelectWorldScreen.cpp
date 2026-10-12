@@ -278,6 +278,10 @@ bool SelectWorldScreen::handleBackEvent(bool isDown)
 	if (!isDown)
 	{
 		minecraft->cancelLocateMultiplayer();
+#ifdef MCPE_VR
+		// Leaving the screen abandons a pending name or seed request.
+		vr::text::cancel();
+#endif
 		minecraft->screenChooser.setScreen(SCREEN_STARTMENU);
 	}
 	return true;

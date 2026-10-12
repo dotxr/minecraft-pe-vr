@@ -79,11 +79,13 @@ bool exerciseTextRequest(Minecraft* mc, AppPlatform& platform) {
     pressKey(mc, 'q');
     pressKey(mc, VrKeyboard::kActionEnter);
     pressKey(mc, VrKeyboard::kActionEnter);
+    pressKey(mc, VrKeyboard::kActionEnter);
     const int status = platform.getUserInputStatus();
     const StringVector v = platform.getUserInput();
-    const bool ok = pending && status == 1 && v.size() == 2 && v[0] == "q" && v[1].empty();
-    printf("text request: pending=%d status=%d name='%s' seed='%s' ok=%d\n", pending, status,
-           v.size() > 0 ? v[0].c_str() : "", v.size() > 1 ? v[1].c_str() : "", ok);
+    const bool ok = pending && status == 1 && v.size() == 3 && v[0] == "q" && v[1].empty() && v[2].empty();
+    printf("text request: pending=%d status=%d name='%s' seed='%s' mode='%s' ok=%d\n", pending, status,
+           v.size() > 0 ? v[0].c_str() : "", v.size() > 1 ? v[1].c_str() : "",
+           v.size() > 2 ? v[2].c_str() : "", ok);
     return ok;
 }
 

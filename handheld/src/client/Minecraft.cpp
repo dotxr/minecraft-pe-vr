@@ -1127,9 +1127,10 @@ bool Minecraft::useTouchscreen() {
 #ifdef RPI
 	return false;
 #endif
-	// The headset has no touch surface: its controllers drive the game instead.
+	// The headset has no touch surface: its controllers drive the game instead. This is
+	// checked before the session starts too, so the first screens are built without touch.
 #ifdef MCPE_VR
-	if (vr::isActive()) return false;
+	return false;
 #endif
 	return options.useTouchScreen || !_supportsNonTouchscreen;
 }

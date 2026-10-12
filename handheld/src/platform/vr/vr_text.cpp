@@ -35,6 +35,7 @@ void begin(int dialogId) {
 	if (dialogId == DialogDefinitions::DIALOG_CREATE_NEW_WORLD) {
 		r.prompts.push_back("World name");
 		r.prompts.push_back("Seed (empty for random)");
+		r.prompts.push_back("Mode: survival, or empty");
 	} else if (dialogId == DialogDefinitions::DIALOG_RENAME_MP_WORLD) {
 		r.prompts.push_back("World name");
 	} else {

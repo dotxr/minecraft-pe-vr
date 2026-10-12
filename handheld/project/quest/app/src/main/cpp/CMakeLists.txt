@@ -53,4 +53,9 @@ add_library(minecraftpe SHARED ${GAME_SOURCES})
 target_include_directories(minecraftpe PRIVATE ${HANDHELD}/src ${HANDHELD}/src/raknet)
 target_compile_definitions(minecraftpe PRIVATE ANDROID MCPE_VR=1)
 target_compile_options(minecraftpe PRIVATE -Wno-psabi -fpermissive -Wno-deprecated-declarations -Wno-invalid-offsetof -Wno-error=format-security)
-target_link_libraries(minecraftpe PRIVATE vrlayer raknet native_app_glue openxr_loader log android EGL GLESv3 OpenSLES)
+# The glue provides ANativeActivity_onCreate, which NativeActivity looks up in the
+# library. Linked as a static archive the linker drops it (nothing references it), so
+# the game compiles the glue source in directly.
+target_sources(minecraftpe PRIVATE ${ANDROID_NDK}/sources/android/native_app_glue/android_native_app_glue.c)
+target_include_directories(minecraftpe PRIVATE ${ANDROID_NDK}/sources/android/native_app_glue)
+target_link_libraries(minecraftpe PRIVATE vrlayer raknet openxr_loader log android EGL GLESv3 OpenSLES)

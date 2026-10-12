@@ -64,7 +64,9 @@ public:
         }
 
         bool flying = player && player->abilities.flying;
-        jumping = !flying && right.buttonA;
+        // A sets the jump flag in both modes, as space does on desktop: a double-tap toggles
+        // flight, and while flying A also ascends (wantUp).
+        jumping = right.buttonA;
         wantUp = flying && right.buttonA;
         wantDown = flying && right.buttonB;
         sneaking = left.stickClick || (!flying && right.buttonB);
@@ -165,6 +167,10 @@ bool gGuiTriggerWasDown = false;
 // release isn't sent to the screen underneath.
 bool gPressOnKeyboard = false;
 
+// True while a press has been sent to the screen as a mouse button down, so the
+// matching release is always sent too.
+bool gMouseDownSent = false;
+
 // Right stick click state, so a click toggles the keyboard once.
 bool gStickClickWasDown = false;
 
@@ -197,15 +203,24 @@ void updateInput(NinecraftApp* app, Minecraft* mc) {
     }
     if (mc->screen && hit) {
         Mouse::feed(MouseAction::ACTION_MOVE, 0, (short)guiX, (short)guiY);
-        if (pressEdge && !gPressOnKeyboard) {
-            Mouse::feed(MouseAction::ACTION_LEFT, MouseAction::DATA_DOWN, (short)guiX, (short)guiY);
-        } else if (releaseEdge && !gPressOnKeyboard) {
-            Mouse::feed(MouseAction::ACTION_LEFT, MouseAction::DATA_UP, (short)guiX, (short)guiY);
-        }
+    }
+    if (pressEdge && !gPressOnKeyboard && mc->screen && hit) {
+        Mouse::feed(MouseAction::ACTION_LEFT, MouseAction::DATA_DOWN, (short)guiX, (short)guiY);
+        gMouseDownSent = true;
+    }
+    // A release always closes a press the screen was sent, even if the ray has left the
+    // panel or the screen has closed, so the mouse button can't stay latched down.
+    if (releaseEdge && gMouseDownSent) {
+        Mouse::feed(MouseAction::ACTION_LEFT, MouseAction::DATA_UP, (short)guiX, (short)guiY);
+        gMouseDownSent = false;
     }
     if (releaseEdge) gPressOnKeyboard = false;
     gGuiTriggerWasDown = trigger;
 
+    // The keyboard belongs to the screen that asked for it: it closes with that screen.
+    if (!mc->screen && !vr::text::open() && mc->platform()->isKeyboardVisible()) {
+        mc->platform()->hideKeyboard();
+    }
     // Right stick click shows or hides the on-screen keyboard while a screen is open.
     bool stickClick = st.hands[kRight].stickClick;
     if (stickClick && !gStickClickWasDown && mc->screen && !vr::text::open()) {

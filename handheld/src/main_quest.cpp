@@ -26,12 +26,18 @@ static const int kGuiHeight = 720;
 
 static AppPlatform_android appPlatform;
 
-static void setupExternalPath(JNIEnv* env, MAIN_CLASS* app)
+// Worlds live in the app's own external directory (Android/data/<package>/files), which
+// needs no storage permission. Shared storage is not writable from this target SDK.
+static void setupExternalPath(JNIEnv* env, jobject activity, MAIN_CLASS* app)
 {
-    jclass clazz = env->FindClass("android/os/Environment");
-    jmethodID method = env->GetStaticMethodID(clazz, "getExternalStorageDirectory", "()Ljava/io/File;");
+    jclass activityClass = env->GetObjectClass(activity);
+    jmethodID getFilesDir = env->GetMethodID(activityClass, "getExternalFilesDir", "(Ljava/lang/String;)Ljava/io/File;");
+    jobject file = env->CallObjectMethod(activity, getFilesDir, NULL);
     if (env->ExceptionOccurred()) env->ExceptionDescribe();
-    jobject file = env->CallStaticObjectMethod(clazz, method);
+    if (file == NULL) {
+        LOGE("getExternalFilesDir returned null; worlds cannot be saved");
+        return;
+    }
 
     jclass fileClass = env->GetObjectClass(file);
     jmethodID fileMethod = env->GetMethodID(fileClass, "getAbsolutePath", "()Ljava/lang/String;");
@@ -92,6 +98,8 @@ void android_main(struct android_app* state)
 
     if (!xr::init(vm, activity)) {
         LOGE("OpenXR initialisation failed; the headset is required");
+        // Close the activity rather than leave a black window with no way out.
+        ANativeActivity_finish(state->activity);
         vm->DetachCurrentThread();
         return;
     }
@@ -104,7 +112,7 @@ void android_main(struct android_app* state)
     context.platform = &appPlatform;
 
     MAIN_CLASS* app = new MAIN_CLASS();
-    setupExternalPath(env, app);
+    setupExternalPath(env, activity, app);
 
     static_cast<App*>(app)->init(context);
     app->setSize(kGuiWidth, kGuiHeight);

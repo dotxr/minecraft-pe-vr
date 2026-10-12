@@ -68,7 +68,8 @@ bool createTree( const char* base, const char* tree[], int treeLength ) {
 		return false;
 
 	std::string p(base);
-	for (int i = 0; i < treeLength; ++i && tree[i]) {
+	// Stops at the end of the array or at the first null entry, reading each entry once.
+	for (int i = 0; i < treeLength && tree[i]; ++i) {
 		p += tree[i];
 		if (!createFolderIfNotExists(p.c_str()))
 			return false;
